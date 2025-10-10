@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, Wind, Thermometer, Droplets, Eye } from "lucide-react";
+import { RefreshCw, Wind, Thermometer, Droplets } from "lucide-react";
 import PollutantCard from "@/components/PollutantCard";
 import AQIChart from "@/components/AQIChart";
 import { cn } from "@/lib/utils";
@@ -19,40 +19,49 @@ interface AQIData {
     no2: number;
     so2: number;
   };
-  weather: {
-    temperature: number;
-    humidity: number;
-    windSpeed: number;
-  };
   timestamp: string;
+}
+
+interface WeatherData {
+  temperature: number;
+  humidity: number;
+  windSpeed: number;
+  visibility?: number;
+  condition?: string;
 }
 
 export default function AirQuality() {
   const [aqiData, setAqiData] = useState<AQIData | null>(null);
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAQIData = async () => {
+  const fetchData = async () => {
     setIsLoading(true);
     setError(null);
-    
     try {
-      const response = await fetch('/api/aqi/bengaluru');
-      if (!response.ok) {
-        throw new Error('Failed to fetch AQI data');
-      }
-      const data = await response.json();
-      setAqiData(data);
+      const aqiResponse = await fetch('/api/aqi/bengaluru');
+      if (!aqiResponse.ok) throw new Error('Failed to fetch AQI data');
+      const aqiJson = await aqiResponse.json();
+
+      const weatherResponse = await fetch('/api/weather/bengaluru');
+      if (!weatherResponse.ok) throw new Error('Failed to fetch Weather data');
+      const weatherJson = await weatherResponse.json();
+
+      setAqiData(aqiJson);
+      setWeatherData(weatherJson);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
+      setAqiData(null);
+      setWeatherData(null);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAQIData();
-    const interval = setInterval(fetchAQIData, 300000); // Refresh every 5 minutes
+    fetchData();
+    const interval = setInterval(fetchData, 300000); // 5 minutes
     return () => clearInterval(interval);
   }, []);
 
@@ -75,6 +84,7 @@ export default function AirQuality() {
             Loading...
           </Button>
         </div>
+        {/* Loading skeleton cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
             <Card key={i} className="animate-pulse">
@@ -97,7 +107,7 @@ export default function AirQuality() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Air Quality Details</h1>
-          <Button onClick={fetchAQIData}>
+          <Button onClick={fetchData}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Retry
           </Button>
@@ -114,7 +124,7 @@ export default function AirQuality() {
     );
   }
 
-  if (!aqiData) return null;
+  if (!aqiData || !weatherData) return null;
 
   const category = getAQICategory(aqiData.currentAQI);
 
@@ -125,7 +135,7 @@ export default function AirQuality() {
           <h1 className="text-3xl font-bold">Air Quality Details</h1>
           <p className="text-muted-foreground">Comprehensive pollution monitoring for {aqiData.location}</p>
         </div>
-        <Button onClick={fetchAQIData} disabled={isLoading}>
+        <Button onClick={fetchData} disabled={isLoading}>
           <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
           Refresh
         </Button>
@@ -168,21 +178,21 @@ export default function AirQuality() {
             <div className="flex items-center gap-2">
               <Thermometer className="h-4 w-4 text-red-500" />
               <div>
-                <div className="font-medium">{aqiData.weather.temperature}°C</div>
+                <div className="font-medium">{weatherData.temperature}°C</div>
                 <div className="text-xs text-muted-foreground">Temperature</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Droplets className="h-4 w-4 text-blue-500" />
               <div>
-                <div className="font-medium">{aqiData.weather.humidity}%</div>
+                <div className="font-medium">{weatherData.humidity}%</div>
                 <div className="text-xs text-muted-foreground">Humidity</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Wind className="h-4 w-4 text-green-500" />
               <div>
-                <div className="font-medium">{aqiData.weather.windSpeed} km/h</div>
+                <div className="font-medium">{weatherData.windSpeed} km/h</div>
                 <div className="text-xs text-muted-foreground">Wind Speed</div>
               </div>
             </div>
@@ -194,47 +204,47 @@ export default function AirQuality() {
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Individual Pollutants</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <PollutantCard 
-            name="PM2.5" 
-            value={aqiData.pollutants.pm25} 
-            unit="μg/m³" 
-            safeLimit={25} 
-            trend="stable" 
+          <PollutantCard
+            name="PM2.5"
+            value={aqiData.pollutants.pm25}
+            unit="μg/m³"
+            safeLimit={25}
+            trend="stable"
           />
-          <PollutantCard 
-            name="PM10" 
-            value={aqiData.pollutants.pm10} 
-            unit="μg/m³" 
-            safeLimit={50} 
-            trend="stable" 
+          <PollutantCard
+            name="PM10"
+            value={aqiData.pollutants.pm10}
+            unit="μg/m³"
+            safeLimit={50}
+            trend="stable"
           />
-          <PollutantCard 
-            name="CO" 
-            value={aqiData.pollutants.co} 
-            unit="mg/m³" 
-            safeLimit={2.0} 
-            trend="stable" 
+          <PollutantCard
+            name="CO"
+            value={aqiData.pollutants.co}
+            unit="mg/m³"
+            safeLimit={2.0}
+            trend="stable"
           />
-          <PollutantCard 
-            name="O₃" 
-            value={aqiData.pollutants.o3} 
-            unit="μg/m³" 
-            safeLimit={100} 
-            trend="stable" 
+          <PollutantCard
+            name="O₃"
+            value={aqiData.pollutants.o3}
+            unit="μg/m³"
+            safeLimit={100}
+            trend="stable"
           />
-          <PollutantCard 
-            name="NO₂" 
-            value={aqiData.pollutants.no2} 
-            unit="μg/m³" 
-            safeLimit={40} 
-            trend="stable" 
+          <PollutantCard
+            name="NO₂"
+            value={aqiData.pollutants.no2}
+            unit="μg/m³"
+            safeLimit={40}
+            trend="stable"
           />
-          <PollutantCard 
-            name="SO₂" 
-            value={aqiData.pollutants.so2} 
-            unit="μg/m³" 
-            safeLimit={20} 
-            trend="stable" 
+          <PollutantCard
+            name="SO₂"
+            value={aqiData.pollutants.so2}
+            unit="μg/m³"
+            safeLimit={20}
+            trend="stable"
           />
         </div>
       </div>
