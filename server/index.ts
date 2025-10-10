@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { dataCollector } from "./services/dataCollector";
 
 const app = express();
 app.use(express.json());
@@ -90,6 +91,20 @@ app.use((req, res, next) => {
     },
     () => {
       log(`🚀 Serving on http://${host}:${port}`);
+
+      dataCollector.start();
     }
   );
+
+  process.on('SIGINT', () => {
+    log('Shutting down gracefully...');
+    dataCollector.stop();
+    process.exit(0);
+  });
+
+  process.on('SIGTERM', () => {
+    log('Shutting down gracefully...');
+    dataCollector.stop();
+    process.exit(0);
+  });
 })();

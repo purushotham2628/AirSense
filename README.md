@@ -1,373 +1,642 @@
-# Bengaluru Air Quality Monitoring & Pollution Prediction Agent
+# 🌬️ Bengaluru Air Quality Monitoring & Pollution Prediction System
 
-An advanced AI-powered air quality monitoring system specifically designed for Bengaluru, India. This application provides real-time AQI data, pollution predictions using machine learning, comprehensive health advisories, and features an interactive dashboard with voice-enabled AI assistance.
+<div align="center">
 
-![Dashboard Preview](https://images.pexels.com/photos/459728/pexels-photo-459728.jpeg?auto=compress&cs=tinysrgb&w=1200&h=400&fit=crop)
+![AirSense Banner](https://images.pexels.com/photos/459728/pexels-photo-459728.jpeg?auto=compress&cs=tinysrgb&w=1200&h=300&fit=crop)
 
-## 🌟 Features
+**Real-time Air Quality Monitoring, IoT Integration & AI-Powered Pollution Prediction for Bengaluru**
 
-### 🔴 Core Functionality
-- **Real-time AQI Monitoring**: Live air quality data from OpenWeather API
-- **Multi-City Comparison**: Compare AQI across major Indian cities
-- **Health Advisory System**: AI-powered health recommendations based on current conditions
-- **Voice Assistant**: Speech recognition and text-to-speech for hands-free interaction
-- **IoT Device Integration**: Real-time sensor data streaming via WebSocket
-- **Historical Data Tracking**: Store and analyze pollution trends over time
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green?style=flat-square&logo=node.js)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/React-18-blue?style=flat-square&logo=react)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5+-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
-### 🤖 AI & Machine Learning
-- **GPT-5 Integration**: Advanced natural language processing for air quality queries
-- **Predictive Analytics**: Time-series forecasting for pollution levels (planned)
-- **Anomaly Detection**: Identify sudden pollution spikes (planned)
-- **Voice Command Processing**: Intent recognition and entity extraction
-
-### 📊 Data Visualization
-- **Interactive Charts**: Real-time AQI trends with Recharts
-- **Pollutant Breakdown**: Individual pollutant level monitoring (PM2.5, PM10, CO, O₃, NO₂, SO₂)
-- **Weather Integration**: Temperature, humidity, wind speed correlation
-- **Mobile-Responsive Design**: Optimized for all device sizes
-
-## 🏗️ Architecture
-
-### Frontend Stack
-- **React 18** with TypeScript
-- **Vite** for fast development and building
-- **Tailwind CSS** for styling
-- **shadcn/ui** component library
-- **Recharts** for data visualization
-- **TanStack Query** for data management
-- **Wouter** for routing
-
-### Backend Stack
-- **Node.js** with Express.js
-- **TypeScript** for type safety
-- **WebSocket** for real-time communication
-- **Drizzle ORM** with PostgreSQL support
-- **Better-sqlite3** for development storage
-
-### External Services
-- **OpenWeather API**: Real-time weather and AQI data
-- **OpenAI GPT-5**: AI chatbot and voice processing
-- **Web Speech API**: Browser-based voice recognition
-
-## 🚀 Quick Start
-
-### Prerequisites
-- **Node.js** 18+ and npm
-- **OpenWeather API Key** (free at [openweathermap.org](https://openweathermap.org/api))
-- **OpenAI API Key** (optional, for AI features)
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd air-pollution-agent
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit `.env` and add your API keys:
-   ```env
-   OPENWEATHER_API_KEY=your_actual_api_key_here
-   OPENAI_API_KEY=your_openai_api_key_here
-   ```
-
-4. **Start the development server**
-   ```bash
-   npm run dev
-   ```
-
-5. **Open your browser**
-   Navigate to `http://localhost:5000`
-
-## 🔧 Configuration
-
-### OpenWeather API Setup
-1. Visit [OpenWeather API](https://openweathermap.org/api)
-2. Sign up for a free account
-3. Generate an API key
-4. Add it to your `.env` file as `OPENWEATHER_API_KEY`
-
-### OpenAI API Setup (Optional)
-1. Visit [OpenAI Platform](https://platform.openai.com/api-keys)
-2. Create an API key
-3. Add it to your `.env` file as `OPENAI_API_KEY`
-
-### Database Setup (Optional)
-By default, the application uses in-memory storage. For production:
-
-1. **PostgreSQL Setup**
-   ```bash
-   # Install PostgreSQL and create database
-   createdb airquality
-   ```
-
-2. **Update environment**
-   ```env
-   DATABASE_URL=postgresql://username:password@localhost:5432/airquality
-   ```
-
-3. **Run migrations**
-   ```bash
-   npm run db:push
-   ```
-
-## 🎯 Usage Guide
-
-### Dashboard Navigation
-- **Dashboard**: Main overview with current AQI, weather, and trends
-- **Air Quality**: Detailed pollutant analysis
-- **Health Advisory**: Personalized health recommendations
-- **Notifications**: Real-time alerts and updates
-- **Map View**: Geographical pollution visualization (coming soon)
-- **Export Data**: Download historical data
-
-### AI Assistant Features
-- **Text Chat**: Ask questions about air quality
-- **Voice Commands**: Use speech recognition (Chrome/Edge)
-- **Natural Language**: "Is it safe to exercise outside?"
-- **Contextual Responses**: AI considers current conditions
-
-### Voice Commands Examples
-- "What's the current AQI in Bengaluru?"
-- "Should I wear a mask today?"
-- "Is it safe for children to play outside?"
-- "How's the air quality compared to yesterday?"
-
-## 🧠 Machine Learning Models
-
-### Current Implementation
-- **Intent Classification**: Rule-based NLP for voice command processing
-- **Entity Extraction**: Location and time entity recognition
-- **GPT-5 Integration**: Advanced language model for conversational AI
-
-### Planned ML Features
-- **LSTM/GRU Models**: Time-series forecasting for AQI prediction
-- **Anomaly Detection**: Statistical models to identify pollution spikes
-- **Ensemble Methods**: Combine multiple models for better accuracy
-- **Transfer Learning**: Adapt models for different Indian cities
-
-### Data Processing Pipeline
-1. **Data Collection**: OpenWeather API + IoT sensors
-2. **Data Cleaning**: Handle missing values and outliers
-3. **Feature Engineering**: Weather correlation, temporal features
-4. **Model Training**: Periodic retraining with new data
-5. **Prediction**: Real-time inference for forecasting
-
-## 📊 API Endpoints
-
-### Air Quality Data
-```
-GET /api/aqi/:location          # Current AQI for location
-GET /api/aqi/:location/history  # Historical AQI data
-POST /api/cities/compare        # Multi-city comparison
-```
-
-### AI Assistant
-```
-POST /api/chat                  # Text-based chat
-POST /api/voice                 # Voice command processing
-GET /api/chat/:sessionId        # Chat history
-```
-
-### Weather Data
-```
-GET /api/weather/:location      # Current weather data
-GET /api/cities/supported       # Supported cities list
-```
-
-## 🔌 WebSocket Integration
-
-Real-time features via WebSocket connection:
-
-```javascript
-const ws = new WebSocket('ws://localhost:5000/ws');
-
-// Subscribe to IoT updates
-ws.send(JSON.stringify({
-  type: 'subscribe',
-  subscription: 'iot_readings'
-}));
-
-// Receive real-time data
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  if (data.type === 'iot_update') {
-    // Handle IoT sensor data
-  }
-};
-```
-
-## 🏗️ Development
-
-### Project Structure
-```
-├── client/                 # React frontend
-│   ├── src/
-│   │   ├── components/     # Reusable UI components
-│   │   ├── pages/         # Route components
-│   │   ├── hooks/         # Custom React hooks
-│   │   └── lib/           # Utilities and configurations
-├── server/                # Express backend
-│   ├── routes.ts          # API route definitions
-│   ├── services/          # Business logic services
-│   └── storage.ts         # Data persistence layer
-├── shared/                # Shared types and schemas
-└── migrations/            # Database migrations
-```
-
-### Available Scripts
-```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run check        # TypeScript type checking
-npm run db:push      # Push database schema changes
-```
-
-### Adding New Features
-
-1. **Frontend Components**: Add to `client/src/components/`
-2. **API Routes**: Extend `server/routes.ts`
-3. **Database Schema**: Update `shared/schema.ts`
-4. **Services**: Add business logic to `server/services/`
-
-## 🧪 Testing
-
-### Manual Testing Checklist
-- [ ] Dashboard loads with mock data
-- [ ] AI chatbot responds to queries
-- [ ] Voice recognition works (Chrome/Edge)
-- [ ] Multi-city comparison functions
-- [ ] WebSocket connection establishes
-- [ ] Theme switching works
-- [ ] Mobile responsive design
-
-### API Testing
-```bash
-# Test AQI endpoint
-curl http://localhost:5000/api/aqi/bengaluru
-
-# Test chat endpoint
-curl -X POST http://localhost:5000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message":"What is the current AQI?","sessionId":"test"}'
-```
-
-## 🚀 Deployment
-
-### Production Build
-```bash
-npm run build
-npm run start
-```
-
-### Environment Variables for Production
-```env
-NODE_ENV=production
-PORT=5000
-OPENWEATHER_API_KEY=your_production_key
-OPENAI_API_KEY=your_production_key
-DATABASE_URL=your_production_database_url
-SESSION_SECRET=your_secure_session_secret
-```
-
-### Docker Deployment (Optional)
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-RUN npm run build
-EXPOSE 5000
-CMD ["npm", "start"]
-```
-
-## 🔒 Security Considerations
-
-- API keys stored in environment variables
-- Session-based authentication ready
-- Input validation with Zod schemas
-- CORS configuration for production
-- Rate limiting recommended for production
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🆘 Troubleshooting
-
-### Common Issues
-
-**"Failed to fetch AQI data"**
-- Check your OpenWeather API key in `.env`
-- Verify internet connection
-- Check API quota limits
-
-**"AI Assistant not responding"**
-- Verify OpenAI API key is set
-- Check API quota and billing
-- Fallback responses should still work
-
-**"Voice recognition not working"**
-- Use Chrome or Edge browser
-- Allow microphone permissions
-- Check HTTPS requirement for production
-
-**"WebSocket connection failed"**
-- Ensure port 5000 is not blocked
-- Check firewall settings
-- Verify server is running
-
-### Getting Help
-
-- Check the [Issues](https://github.com/your-repo/issues) page
-- Review API documentation
-- Check browser console for errors
-- Verify environment variable setup
-
-## 🔮 Roadmap
-
-### Phase 1 (Current)
-- [x] Real-time AQI monitoring
-- [x] AI chatbot integration
-- [x] Voice assistant
-- [x] Multi-city comparison
-- [x] WebSocket IoT integration
-
-### Phase 2 (Planned)
-- [ ] Machine learning prediction models
-- [ ] Map visualization with Leaflet
-- [ ] Email/SMS notifications
-- [ ] User authentication system
-- [ ] Data export functionality
-
-### Phase 3 (Future)
-- [ ] Mobile app (React Native)
-- [ ] Advanced analytics dashboard
-- [ ] Integration with government AQI APIs
-- [ ] Community reporting features
-- [ ] Predictive health recommendations
+</div>
 
 ---
 
-**Built with ❤️ for cleaner air in Bengaluru**
+## 📋 Table of Contents
 
-For questions or support, please open an issue or contact the development team.
+- [Features](#-features)
+- [Architecture](#️-architecture)
+- [Quick Start](#-quick-start)
+- [Detailed Setup](#-detailed-setup)
+- [IoT Hardware Integration](#-iot-hardware-integration)
+- [Running the Application](#-running-the-application)
+- [API Documentation](#-api-documentation)
+- [Troubleshooting](#-troubleshooting)
+- [Contributing](#-contributing)
+
+---
+
+## 🌟 Features
+
+### 🔬 **Advanced Analytics & Monitoring**
+- ✅ **Real-time Air Quality Monitoring** - Live PM2.5, PM10, NO2, SO2, CO, O3 measurements
+- ✅ **IoT Sensor Integration** - Support for MQ-135, DHT11/DHT22, BME280 sensors
+- ✅ **AI-Powered Chatbot** - GPT-5 integration for natural language air quality queries
+- ✅ **Weather Correlation Analysis** - Complete meteorological data integration
+- ✅ **Automated Data Collection** - Scheduler runs every 15 minutes
+- ✅ **Multi-City Comparison** - Compare AQI across major Indian cities
+- ✅ **Historical Data Tracking** - SQLite database for trend analysis
+
+### 💎 **Premium UI/UX**
+- ✅ **Modern Dashboard** - Professional interface with glass morphism effects
+- ✅ **Dark Theme Support** - Seamless theme switching
+- ✅ **Smooth Animations** - Framer Motion powered transitions
+- ✅ **Interactive Charts** - Real-time data visualization with Recharts
+- ✅ **Responsive Design** - Mobile-first approach with adaptive layouts
+- ✅ **Voice Assistant** - Speech recognition and text-to-speech capabilities
+
+### 🛡️ **Enterprise Features**
+- ✅ **WebSocket Real-time Updates** - Live IoT sensor data streaming
+- ✅ **Health Advisory System** - Smart recommendations based on air quality levels
+- ✅ **Data Export** - Download historical data in CSV/JSON format
+- ✅ **Comprehensive Error Handling** - Robust error management
+- ✅ **Automated Backups** - Database backup and retention policies
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+graph TB
+    A[Frontend - React + Vite] --> B[Backend API - Express.js]
+    B --> C[SQLite Database]
+    B --> D[OpenWeather API]
+    B --> E[OpenAI GPT-5]
+    B --> F[Data Collector Service]
+    F --> D
+    G[IoT Sensors] --> H[ESP32/ESP8266]
+    H --> I[WebSocket Server]
+    I --> B
+    B --> J[WebSocket Clients]
+    J --> A
+```
+
+**Technology Stack:**
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, Framer Motion
+- **Backend:** Node.js, Express.js, WebSocket (ws)
+- **Database:** SQLite3 with better-sqlite3
+- **AI/ML:** OpenAI GPT-5 API
+- **External APIs:** OpenWeather API for real-time data
+- **IoT:** ESP32/ESP8266 with MQ-135, DHT22, BME280 sensors
+
+---
+
+## ⚡ Quick Start
+
+### Prerequisites Checklist
+
+Before starting, ensure you have:
+
+- [ ] **Node.js 18+** installed ([Download here](https://nodejs.org/))
+- [ ] **npm 8+** package manager
+- [ ] **OpenWeather API Key** ([Get free key](https://openweathermap.org/api))
+- [ ] **OpenAI API Key** (optional, for AI chatbot features)
+- [ ] **4GB+ RAM** recommended
+- [ ] **Stable internet connection**
+
+### 🚀 One-Command Setup
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd air-quality-monitoring
+
+# Install dependencies
+npm install --legacy-peer-deps
+
+# Configure environment variables
+cp .env.example .env
+# Edit .env and add your API keys
+
+# Start the application
+npm run dev
+```
+
+---
+
+## 🔧 Detailed Setup
+
+### Step 1: Clone Repository
+
+```bash
+git clone <repository-url>
+cd air-quality-monitoring
+```
+
+### Step 2: Install Dependencies
+
+```bash
+npm install --legacy-peer-deps
+```
+
+### Step 3: Configure Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+# 🌤️ OpenWeather API (REQUIRED)
+OPENWEATHER_API_KEY=your_openweather_api_key_here
+
+# 🤖 OpenAI API (Optional - for AI chatbot features)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# 🖥️ Server Configuration
+PORT=5000
+NODE_ENV=development
+
+# 💾 Database
+DB_PATH=./data/air_quality.db
+
+# 🔐 Session (Optional)
+SESSION_SECRET=your_secure_session_secret_here
+```
+
+### Step 4: Get OpenWeather API Key
+
+1. 🌐 Visit [OpenWeather API](https://openweathermap.org/api)
+2. 📝 Sign up for a free account
+3. 🔑 Generate API key (takes ~10 minutes to activate)
+4. 📋 Copy key to `.env` file as `OPENWEATHER_API_KEY`
+
+> **💡 Tip:** Free tier includes 1000 calls/day with air pollution data
+
+### Step 5: Get OpenAI API Key (Optional)
+
+1. 🌐 Visit [OpenAI Platform](https://platform.openai.com/api-keys)
+2. 📝 Create an API key
+3. 📋 Add to `.env` file as `OPENAI_API_KEY`
+
+---
+
+## 🔌 IoT Hardware Integration
+
+This system supports real-time data collection from IoT air quality sensors. For complete hardware setup instructions, see [IOT_HARDWARE_INTEGRATION.md](./IOT_HARDWARE_INTEGRATION.md).
+
+### Supported Sensors
+
+| Sensor | Purpose | Interface | Accuracy |
+|--------|---------|-----------|----------|
+| **MQ-135** | Air quality (NH3, NOx, CO2, benzene, smoke) | Analog | ±10% |
+| **DHT22** | Temperature & Humidity | Digital (1-wire) | ±0.5°C, ±2% RH |
+| **BME280** | Temperature, Humidity, Pressure | I2C/SPI | ±1°C, ±3% RH, ±1 hPa |
+
+### Quick IoT Setup
+
+**Hardware Requirements:**
+- ESP32 or ESP8266 microcontroller
+- MQ-135 Air Quality Sensor
+- DHT22 or BME280 sensor
+- Power supply (5V DC)
+- Breadboard and jumper wires
+
+**Software Requirements:**
+- Arduino IDE
+- Required libraries: WiFi, WebSocketsClient, ArduinoJson, DHT, Adafruit BME280
+
+**Basic Wiring:**
+```
+ESP32 Pinout:
+GPIO 32 (ADC) ← MQ-135 A0
+GPIO 4        ← DHT22 DATA
+GPIO 21 (SDA) ← BME280 SDA
+GPIO 22 (SCL) ← BME280 SCL
+3.3V          → Sensors VCC
+GND           → Sensors GND
+```
+
+**WebSocket Connection:**
+
+The ESP32/ESP8266 connects to the server via WebSocket and sends data every 30 seconds:
+
+```json
+{
+  "type": "iot_reading",
+  "deviceId": "iot-bengaluru-001",
+  "location": "Bengaluru Central",
+  "pm25": 35.5,
+  "pm10": 68.2,
+  "temperature": 28.5,
+  "humidity": 65.0,
+  "batteryLevel": 85,
+  "signalStrength": 78
+}
+```
+
+For complete Arduino code, circuit diagrams, and troubleshooting, see [IOT_HARDWARE_INTEGRATION.md](./IOT_HARDWARE_INTEGRATION.md).
+
+---
+
+## 🚀 Running the Application
+
+### Method 1: Development Mode (Recommended)
+
+```bash
+npm run dev
+```
+
+This will start:
+- 🖥️ **Backend API:** http://localhost:5000
+- 🌐 **Frontend App:** http://localhost:5000
+- 📊 **WebSocket Server:** ws://localhost:5000/ws
+
+### Method 2: Production Mode
+
+```bash
+# Build the application
+npm run build
+
+# Start production server
+npm start
+```
+
+### What Happens on Startup
+
+1. ✓ Express server starts on port 5000
+2. ✓ SQLite database initializes
+3. ✓ OpenWeather API connection verified
+4. ✓ WebSocket server starts for IoT devices
+5. ✓ Automated data collection begins (every 15 minutes)
+6. ✓ Frontend served via Vite (development) or static files (production)
+
+---
+
+## 🔍 Troubleshooting
+
+### Common Issues & Solutions
+
+#### ❌ **"Failed to fetch air quality data"**
+
+**Causes & Solutions:**
+
+1. **API Key Issues:**
+   ```bash
+   # Check if API key is set
+   grep OPENWEATHER_API_KEY .env
+
+   # Test API key
+   curl "http://api.openweathermap.org/data/2.5/weather?lat=12.9716&lon=77.5946&appid=YOUR_API_KEY"
+   ```
+
+2. **Backend Not Running:**
+   ```bash
+   # Check if server is running
+   curl http://localhost:5000/api/aqi/bengaluru
+
+   # Restart server
+   npm run dev
+   ```
+
+3. **API Key Not Activated:**
+   - OpenWeather API keys take 10-20 minutes to activate after creation
+   - Wait and try again
+
+#### ❌ **"npm install" Fails**
+
+**Solution:**
+```bash
+# Use legacy peer deps flag
+npm install --legacy-peer-deps
+
+# Or clean install
+rm -rf node_modules package-lock.json
+npm install --legacy-peer-deps
+```
+
+#### ❌ **"Database Error" or "Cannot open database"**
+
+**Solution:**
+```bash
+# Create data directory
+mkdir -p data
+
+# Check permissions
+ls -la data/
+
+# Restart server
+npm run dev
+```
+
+#### ❌ **"WebSocket connection failed"**
+
+**Solution:**
+- Ensure server is running on port 5000
+- Check firewall settings
+- Verify WebSocket path is `/ws`
+- Check IoT device configuration (WiFi, server IP)
+
+#### ❌ **"IoT sensor not sending data"**
+
+**Solution:**
+- Check Arduino serial monitor for errors (115200 baud)
+- Verify WiFi credentials in ESP32 code
+- Ensure WebSocket server URL is correct
+- Check sensor wiring and power supply
+- Review [IOT_HARDWARE_INTEGRATION.md](./IOT_HARDWARE_INTEGRATION.md) for sensor-specific troubleshooting
+
+#### ❌ **"AI Chatbot not responding"**
+
+**Solution:**
+- Verify `OPENAI_API_KEY` is set in `.env`
+- Check OpenAI API quota and billing
+- System will use fallback responses if API is unavailable
+- Check browser console for errors
+
+### 🔧 Debug Mode
+
+```bash
+# Enable detailed logging
+DEBUG=* npm run dev
+
+# Check system logs
+tail -f logs/app.log
+
+# Test API endpoints
+curl http://localhost:5000/api/aqi/bengaluru
+curl http://localhost:5000/api/weather/bengaluru
+curl http://localhost:5000/api/cities/supported
+```
+
+---
+
+## 📊 API Documentation
+
+### Base URL
+```
+Development: http://localhost:5000/api
+```
+
+### Key Endpoints
+
+#### Air Quality
+```bash
+# Current AQI data
+GET /api/aqi/:location
+Example: GET /api/aqi/bengaluru
+
+# Historical data
+GET /api/aqi/:location/history?limit=24
+Example: GET /api/aqi/bengaluru/history?limit=24
+```
+
+#### Multi-City Comparison
+```bash
+POST /api/cities/compare
+Content-Type: application/json
+
+{
+  "cities": ["bengaluru", "delhi", "mumbai", "chennai"]
+}
+```
+
+#### Weather Data
+```bash
+GET /api/weather/:location
+Example: GET /api/weather/bengaluru
+```
+
+#### AI Chatbot
+```bash
+POST /api/chat
+Content-Type: application/json
+
+{
+  "message": "What's the current AQI?",
+  "sessionId": "user-123",
+  "location": "Bengaluru Central"
+}
+```
+
+#### Voice Assistant
+```bash
+POST /api/voice
+Content-Type: application/json
+
+{
+  "transcript": "Is it safe to exercise outside?",
+  "sessionId": "user-123",
+  "location": "Bengaluru Central"
+}
+```
+
+#### Data Export
+```bash
+POST /api/export
+Content-Type: application/json
+
+{
+  "format": "csv",
+  "dateRange": {
+    "from": "2025-10-01",
+    "to": "2025-10-10"
+  },
+  "dataTypes": {
+    "aqi": true,
+    "pollutants": true,
+    "weather": true
+  },
+  "locations": ["Bengaluru Central"],
+  "includeMetadata": true
+}
+```
+
+#### Supported Cities
+```bash
+GET /api/cities/supported
+
+Response:
+{
+  "cities": [
+    {"name": "Bengaluru", "lat": 12.9716, "lon": 77.5946, "state": "Karnataka"},
+    {"name": "Delhi", "lat": 28.6139, "lon": 77.2090, "state": "Delhi"},
+    ...
+  ]
+}
+```
+
+### WebSocket API
+
+Connect to `ws://localhost:5000/ws` for real-time updates.
+
+**Client → Server (IoT Device):**
+```json
+{
+  "type": "iot_reading",
+  "deviceId": "iot-bengaluru-001",
+  "location": "Bengaluru Central",
+  "pm25": 35.5,
+  "pm10": 68.2,
+  "temperature": 28.5,
+  "humidity": 65.0,
+  "batteryLevel": 85,
+  "signalStrength": 78
+}
+```
+
+**Server → Client (Broadcast):**
+```json
+{
+  "type": "iot_update",
+  "deviceId": "iot-bengaluru-001",
+  "location": "Bengaluru Central",
+  "data": { ... },
+  "timestamp": "2025-10-10T10:30:00Z"
+}
+```
+
+---
+
+## 🎯 Features Walkthrough
+
+### 📊 **Dashboard Overview**
+- Real-time AQI display with color-coded health status
+- Interactive charts showing pollution trends
+- Weather integration with current conditions
+- Multi-city comparison view
+- IoT device monitoring panel
+
+### 🤖 **AI Assistant**
+- Natural language air quality queries
+- Voice command support (Chrome/Edge)
+- Context-aware health recommendations
+- Historical data insights
+
+### 📡 **IoT Integration**
+- Real-time sensor data from ESP32/ESP8266
+- Live device status monitoring
+- Battery and signal strength indicators
+- Automatic reconnection on failure
+
+### 📈 **Analytics**
+- Historical trend analysis
+- Pollutant breakdown (PM2.5, PM10, CO, O3, NO2, SO2)
+- Weather correlation
+- Data quality metrics
+
+### 📥 **Data Export**
+- Export to CSV or JSON
+- Custom date ranges
+- Select specific data types
+- Include metadata options
+
+---
+
+## 🚀 Project Structure
+
+```
+air-quality-monitoring/
+├── client/                      # React frontend
+│   ├── src/
+│   │   ├── components/          # UI components
+│   │   │   ├── ui/              # shadcn/ui components
+│   │   │   ├── AQICard.tsx      # AQI display card
+│   │   │   ├── AIChatbot.tsx    # AI chatbot component
+│   │   │   ├── IoTDeviceMonitor.tsx  # IoT device monitor
+│   │   │   └── ...
+│   │   ├── pages/               # Page components
+│   │   │   ├── Dashboard.tsx    # Main dashboard
+│   │   │   ├── AirQuality.tsx   # Detailed AQI view
+│   │   │   └── ...
+│   │   ├── hooks/               # Custom React hooks
+│   │   └── lib/                 # Utilities
+│   └── index.html
+├── server/                      # Express backend
+│   ├── services/                # Business logic
+│   │   ├── openWeatherService.ts    # OpenWeather API integration
+│   │   ├── aiService.ts             # OpenAI GPT integration
+│   │   ├── voiceService.ts          # Voice processing
+│   │   └── dataCollector.ts         # Automated data collection
+│   ├── routes.ts                # API routes
+│   ├── storage.ts               # Database layer
+│   └── index.ts                 # Server entry point
+├── shared/                      # Shared types/schemas
+│   └── schema.ts
+├── IOT_HARDWARE_INTEGRATION.md  # IoT hardware guide
+├── README.md                    # This file
+├── .env                         # Environment variables
+└── package.json
+```
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Here's how to get started:
+
+### Development Workflow
+
+1. **Fork the repository**
+2. **Create feature branch:** `git checkout -b feature/amazing-feature`
+3. **Install dependencies:** `npm install --legacy-peer-deps`
+4. **Start development:** `npm run dev`
+5. **Make changes and test**
+6. **Commit:** `git commit -m 'Add amazing feature'`
+7. **Push:** `git push origin feature/amazing-feature`
+8. **Create Pull Request**
+
+### Code Standards
+- **TypeScript:** Strict mode enabled
+- **Formatting:** Prettier for code formatting
+- **Components:** Follow React best practices
+- **Commits:** Use descriptive commit messages
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- **OpenWeather API** for comprehensive environmental data
+- **OpenAI** for GPT-5 API access
+- **React/Vite Community** for excellent documentation
+- **shadcn/ui** for beautiful UI components
+- **Bengaluru Air Quality Board** for validation data
+- **Open Source Community** for amazing tools and libraries
+
+---
+
+## 📞 Support
+
+### Getting Help
+
+- 📖 **Documentation:** Check this README and IoT guide
+- 🐛 **Bug Reports:** Create GitHub issue
+- 💡 **Feature Requests:** Open GitHub discussion
+- 🔧 **Troubleshooting:** See troubleshooting section above
+
+### Quick Links
+
+- **IoT Integration Guide:** [IOT_HARDWARE_INTEGRATION.md](./IOT_HARDWARE_INTEGRATION.md)
+- **OpenWeather API:** [https://openweathermap.org/api](https://openweathermap.org/api)
+- **OpenAI Platform:** [https://platform.openai.com](https://platform.openai.com)
+
+---
+
+<div align="center">
+
+**🌱 Built with passion for cleaner air and better health in Bengaluru 🇮🇳**
+
+*Last updated: October 2025*
+
+---
+
+### ⚡ Quick Start Checklist
+
+- [ ] Node.js 18+ installed
+- [ ] Clone repository
+- [ ] Run `npm install --legacy-peer-deps`
+- [ ] Get OpenWeather API key from [openweathermap.org/api](https://openweathermap.org/api)
+- [ ] Create `.env` file and add `OPENWEATHER_API_KEY`
+- [ ] Run `npm run dev`
+- [ ] Open http://localhost:5000
+- [ ] (Optional) Setup IoT sensors using [IOT_HARDWARE_INTEGRATION.md](./IOT_HARDWARE_INTEGRATION.md)
+
+**🆘 Need help?** Check the [troubleshooting section](#-troubleshooting) or create an issue!
+
+</div>
