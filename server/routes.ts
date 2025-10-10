@@ -296,6 +296,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Settings management endpoints
+  app.post('/api/settings/update', async (req, res) => {
+    try {
+      const { openWeatherKey, openAiKey } = req.body;
+
+      // In production, store these securely in a database per user
+      // For now, we'll acknowledge receipt
+      res.json({
+        success: true,
+        message: 'Settings updated successfully'
+      });
+    } catch (error) {
+      console.error('Settings Update Error:', error);
+      res.status(500).json({ error: 'Failed to update settings' });
+    }
+  });
+
+  app.post('/api/test-openai', async (req, res) => {
+    try {
+      const { apiKey } = req.body;
+
+      if (!apiKey || apiKey === 'demo' || !apiKey.trim()) {
+        return res.status(400).json({ error: 'Valid API key required' });
+      }
+
+      // Test the API key with a simple request
+      const OpenAI = (await import('openai')).default;
+      const openai = new OpenAI({ apiKey });
+
+      await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: "test" }],
+        max_tokens: 5,
+      });
+
+      res.json({ success: true, status: 'connected' });
+    } catch (error: any) {
+      console.error('OpenAI Test Error:', error);
+      res.status(400).json({
+        error: 'API key test failed',
+        details: error.message
+      });
+    }
+  });
+
   // Export data endpoint
   app.post('/api/export', async (req, res) => {
     try {

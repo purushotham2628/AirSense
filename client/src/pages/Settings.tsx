@@ -112,8 +112,11 @@ export default function Settings() {
 
   useEffect(() => {
     loadSettings();
-    checkApiStatus();
   }, []);
+
+  useEffect(() => {
+    checkApiStatus();
+  }, [settings.api.openWeatherKey, settings.api.openAiKey]);
 
   const loadSettings = () => {
     const savedSettings = localStorage.getItem('appSettings');
@@ -131,15 +134,27 @@ export default function Settings() {
     setIsSaving(true);
     try {
       localStorage.setItem('appSettings', JSON.stringify(settings));
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
+      // Save API keys to backend if provided
+      if (settings.api.openWeatherKey || settings.api.openAiKey) {
+        await fetch('/api/settings/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            openWeatherKey: settings.api.openWeatherKey,
+            openAiKey: settings.api.openAiKey
+          })
+        });
+      }
+
       setHasChanges(false);
       toast({
         title: "Settings saved",
         description: "Your preferences have been updated successfully.",
       });
+
+      // Recheck API status after saving
+      await checkApiStatus();
     } catch (error) {
       toast({
         title: "Error",
@@ -151,8 +166,10 @@ export default function Settings() {
     }
   };
 
-  const checkApiStatus = async () => {
-    // Check OpenWeather API
+  const testApiConnections = async () => {
+    setApiStatus({ openWeather: 'unknown', openAi: 'unknown' });
+
+    // Test OpenWeather API
     try {
       const response = await fetch('/api/aqi/bengaluru');
       setApiStatus(prev => ({
@@ -163,10 +180,42 @@ export default function Settings() {
       setApiStatus(prev => ({ ...prev, openWeather: 'error' }));
     }
 
-    // Check OpenAI API (mock)
+    // Test OpenAI API with a simple request
+    if (settings.api.openAiKey && settings.api.openAiKey.trim()) {
+      try {
+        const response = await fetch('/api/test-openai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKey: settings.api.openAiKey })
+        });
+        setApiStatus(prev => ({
+          ...prev,
+          openAi: response.ok ? 'connected' : 'error'
+        }));
+      } catch {
+        setApiStatus(prev => ({ ...prev, openAi: 'error' }));
+      }
+    } else {
+      setApiStatus(prev => ({ ...prev, openAi: 'not_configured' }));
+    }
+  };
+
+  const checkApiStatus = async () => {
+    // Check OpenWeather API status
+    try {
+      const response = await fetch('/api/aqi/bengaluru');
+      setApiStatus(prev => ({
+        ...prev,
+        openWeather: response.ok ? 'connected' : 'error'
+      }));
+    } catch {
+      setApiStatus(prev => ({ ...prev, openWeather: 'error' }));
+    }
+
+    // Check OpenAI API status
     setApiStatus(prev => ({
       ...prev,
-      openAi: settings.api.openAiKey ? 'connected' : 'not_configured'
+      openAi: settings.api.openAiKey && settings.api.openAiKey.trim() ? 'connected' : 'not_configured'
     }));
   };
 
@@ -630,7 +679,7 @@ export default function Settings() {
                 </p>
               </div>
 
-              <Button onClick={checkApiStatus} variant="outline" className="w-full">
+              <Button onClick={testApiConnections} variant="outline" className="w-full">
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Test API Connections
               </Button>

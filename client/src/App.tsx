@@ -12,6 +12,9 @@ import HealthAdvisory from "@/pages/HealthAdvisory";
 import Notifications from "@/pages/Notifications";
 import ExportData from "@/pages/ExportData";
 import Settings from "@/pages/Settings";
+import MapView from "@/pages/MapView";
+import IoTDevices from "@/pages/IoTDevices";
+import MLPredictions from "@/pages/MLPredictions";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -21,7 +24,9 @@ function Router() {
       <Route path="/air-quality" component={AirQuality} />
       <Route path="/health" component={HealthAdvisory} />
       <Route path="/notifications" component={Notifications} />
-      <Route path="/map" component={() => <div className="p-6"><h1 className="text-2xl font-bold">Map View (Coming Soon)</h1></div>} />
+      <Route path="/map" component={MapView} />
+      <Route path="/iot-devices" component={IoTDevices} />
+      <Route path="/ml-predictions" component={MLPredictions} />
       <Route path="/export" component={ExportData} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />

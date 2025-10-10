@@ -10,7 +10,7 @@ import {
   SidebarHeader,
   SidebarFooter
 } from "@/components/ui/sidebar";
-import { Wind, BarChart3, Heart, Bell, Settings, Download, Map } from "lucide-react";
+import { Wind, BarChart3, Heart, Bell, Settings, Download, Map, Wifi, Brain } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 
@@ -26,20 +26,30 @@ const menuItems = [
     icon: Wind,
   },
   {
+    title: "ML Predictions",
+    url: "/ml-predictions",
+    icon: Brain,
+  },
+  {
     title: "Health Advisory",
     url: "/health",
     icon: Heart,
+  },
+  {
+    title: "Map View",
+    url: "/map",
+    icon: Map,
+  },
+  {
+    title: "IoT Devices",
+    url: "/iot-devices",
+    icon: Wifi,
   },
   {
     title: "Notifications",
     url: "/notifications",
     icon: Bell,
     badge: "2"
-  },
-  {
-    title: "Map View",
-    url: "/map",
-    icon: Map,
   },
   {
     title: "Export Data",

@@ -6,16 +6,16 @@ import HealthAdvisory from "@/components/HealthAdvisory";
 import NotificationPanel from "@/components/NotificationPanel";
 import AIChatbot from "@/components/AIChatbot";
 import GeoCityComparison from "@/components/GeoCityComparison";
-import IoTDeviceMonitor from "@/components/IoTDeviceMonitor";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Download, AlertTriangle, Bot, MapPin, Wifi } from "lucide-react";
-import { useState } from "react";
+import { RefreshCw, Download, AlertTriangle, Bot, MapPin } from "lucide-react";
+import { useState, useRef } from "react";
 
 import { useLocation } from "wouter";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const chatbotRef = useRef<{ sendMessage: (msg: string) => void } | null>(null);
 
   //todo: remove mock functionality
   const mockChartData = [
@@ -157,7 +157,8 @@ export default function Dashboard() {
           <span className="text-sm text-muted-foreground">Ask questions or use voice commands</span>
         </div>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <AIChatbot 
+          <AIChatbot
+            ref={chatbotRef}
             sessionId={`dashboard-${new Date().getDate()}`}
             location="Bengaluru Central"
             className="h-80"
@@ -166,16 +167,36 @@ export default function Dashboard() {
             <div className="bg-muted/30 rounded-lg p-4">
               <h3 className="font-medium mb-3">Quick Commands</h3>
               <div className="grid grid-cols-1 gap-2">
-                <Button variant="outline" size="sm" className="justify-start text-left h-auto py-2 px-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="justify-start text-left h-auto py-2 px-3"
+                  onClick={() => chatbotRef.current?.sendMessage("What's the current AQI?")}
+                >
                   <span className="text-xs">"What's the current AQI?"</span>
                 </Button>
-                <Button variant="outline" size="sm" className="justify-start text-left h-auto py-2 px-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="justify-start text-left h-auto py-2 px-3"
+                  onClick={() => chatbotRef.current?.sendMessage("Is it safe to exercise outside?")}
+                >
                   <span className="text-xs">"Is it safe to exercise outside?"</span>
                 </Button>
-                <Button variant="outline" size="sm" className="justify-start text-left h-auto py-2 px-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="justify-start text-left h-auto py-2 px-3"
+                  onClick={() => chatbotRef.current?.sendMessage("Will pollution be high tomorrow?")}
+                >
                   <span className="text-xs">"Will pollution be high tomorrow?"</span>
                 </Button>
-                <Button variant="outline" size="sm" className="justify-start text-left h-auto py-2 px-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="justify-start text-left h-auto py-2 px-3"
+                  onClick={() => chatbotRef.current?.sendMessage("Should I wear a mask today?")}
+                >
                   <span className="text-xs">"Should I wear a mask today?"</span>
                 </Button>
               </div>
@@ -206,16 +227,6 @@ export default function Dashboard() {
           <span className="text-sm text-muted-foreground">Compare AQI across Indian cities</span>
         </div>
         <GeoCityComparison />
-      </div>
-
-      {/* IoT Device Monitoring Section */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Wifi className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-semibold">IoT Device Network</h2>
-          <span className="text-sm text-muted-foreground">Real-time sensor monitoring</span>
-        </div>
-        <IoTDeviceMonitor />
       </div>
     </div>
   );

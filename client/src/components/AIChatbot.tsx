@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,11 @@ interface AIChatbotProps {
   className?: string;
 }
 
-export default function AIChatbot({ sessionId, location = "Bengaluru Central", className }: AIChatbotProps) {
+export interface AIChatbotRef {
+  sendMessage: (message: string) => void;
+}
+
+const AIChatbot = forwardRef<AIChatbotRef, AIChatbotProps>(({ sessionId, location = "Bengaluru Central", className }, ref) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -218,6 +222,12 @@ export default function AIChatbot({ sessionId, location = "Bengaluru Central", c
     sendMessage(inputValue);
   };
 
+  useImperativeHandle(ref, () => ({
+    sendMessage: (message: string) => {
+      sendMessage(message);
+    }
+  }));
+
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
@@ -337,4 +347,8 @@ export default function AIChatbot({ sessionId, location = "Bengaluru Central", c
       </CardContent>
     </Card>
   );
-}
+});
+
+AIChatbot.displayName = 'AIChatbot';
+
+export default AIChatbot;
