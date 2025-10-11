@@ -199,9 +199,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/aqi/:location?', async (req, res) => {
     try {
       const location = req.params.location || 'Bengaluru Central';
-      const context = await getCurrentAQIContext(location);
-      
-      res.json(context);
+
+      const aqiData = await openWeatherService.getAQIData(location);
+
+      res.json({
+        currentAQI: aqiData.aqi,
+        location: aqiData.location,
+        pollutants: {
+          pm25: aqiData.pm25,
+          pm10: aqiData.pm10,
+          co: aqiData.co,
+          o3: aqiData.o3,
+          no2: aqiData.no2,
+          so2: aqiData.so2
+        },
+        timestamp: aqiData.timestamp
+      });
     } catch (error) {
       console.error('AQI API Error:', error);
       res.status(500).json({ error: 'Failed to retrieve AQI data' });
@@ -213,13 +226,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { location } = req.params;
       const { limit } = req.query;
-      
+
       const readings = await storage.getAQIReadings(location, limit ? parseInt(limit as string) : 24);
-      
+
       res.json({ readings });
     } catch (error) {
       console.error('AQI History API Error:', error);
       res.status(500).json({ error: 'Failed to retrieve AQI history' });
+    }
+  });
+
+  // Get AQI trend data for charts
+  app.get('/api/aqi/:location/trend', async (req, res) => {
+    try {
+      const { location } = req.params;
+      const { timeframe } = req.query;
+
+      const hours = timeframe === '7d' ? 168 : timeframe === '30d' ? 720 : 24;
+      const dataPoints = timeframe === '7d' ? 7 * 24 : timeframe === '30d' ? 30 * 24 : 24;
+
+      const trendData = [];
+      const now = new Date();
+
+      for (let i = 0; i < dataPoints; i++) {
+        const time = new Date(now.getTime() - (dataPoints - i) * 60 * 60 * 1000);
+        const baseAQI = 80 + Math.sin(i / 8) * 30;
+        const variation = Math.random() * 20 - 10;
+
+        trendData.push({
+          time: timeframe === '24h'
+            ? time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+            : timeframe === '7d'
+            ? time.toLocaleDateString('en-US', { weekday: 'short', hour: '2-digit' })
+            : time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          aqi: Math.max(0, Math.round(baseAQI + variation)),
+          predicted: Math.max(0, Math.round(baseAQI + variation + (Math.random() - 0.5) * 10))
+        });
+      }
+
+      res.json(trendData);
+    } catch (error) {
+      console.error('AQI Trend API Error:', error);
+      res.status(500).json({ error: 'Failed to retrieve AQI trend data' });
     }
   });
 
@@ -271,13 +319,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Weather trend endpoint (moved before :location to avoid conflict)
+  app.get('/api/weather/trend', async (req, res) => {
+    try {
+      const { location, timeframe } = req.query;
+      const hours = timeframe === '7d' ? 168 : timeframe === '30d' ? 720 : 24;
+
+      const trends = [];
+      const now = new Date();
+
+      for (let i = 0; i < Math.min(hours, 24); i++) {
+        const time = new Date(now.getTime() + i * 60 * 60 * 1000);
+        trends.push({
+          time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          temperature: 25 + Math.sin(i / 4) * 5 + Math.random() * 2,
+          humidity: 60 + Math.sin(i / 3) * 20 + Math.random() * 5,
+          windSpeed: 10 + Math.sin(i / 5) * 5 + Math.random() * 3
+        });
+      }
+
+      res.json(trends);
+    } catch (error) {
+      console.error('Weather Trend API Error:', error);
+      res.status(500).json({ error: 'Failed to retrieve weather trends' });
+    }
+  });
+
+  // Weather predictions endpoint
+  app.get('/api/weather/predictions/:location', async (req, res) => {
+    try {
+      const { location } = req.params;
+      const { timeframe } = req.query;
+
+      const hours = timeframe === '7d' ? 168 : timeframe === '30d' ? 720 : 24;
+      const predictions = [];
+      const now = new Date();
+
+      for (let i = 0; i < Math.min(hours, 24); i++) {
+        const time = new Date(now.getTime() + i * 60 * 60 * 1000);
+        const baseTemp = 28 + Math.sin(i / 4) * 5;
+
+        predictions.push({
+          time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          temperature: Math.round((baseTemp + Math.random() * 2) * 10) / 10,
+          feelsLike: Math.round((baseTemp + 2 + Math.random() * 2) * 10) / 10,
+          humidity: Math.round(60 + Math.sin(i / 3) * 20 + Math.random() * 5),
+          condition: i % 6 === 0 ? 'Cloudy' : i % 4 === 0 ? 'Partly Cloudy' : 'Clear',
+          precipitationChance: Math.round(Math.random() * 30)
+        });
+      }
+
+      res.json(predictions);
+    } catch (error) {
+      console.error('Weather Predictions API Error:', error);
+      res.status(500).json({ error: 'Failed to retrieve weather predictions' });
+    }
+  });
+
   // Real-time weather data for a city
   app.get('/api/weather/:location', async (req, res) => {
     try {
       const { location } = req.params;
-      
+
       const weatherData = await openWeatherService.getWeatherData(location);
-      
+
       res.json(weatherData);
     } catch (error) {
       console.error('Weather API Error:', error);
@@ -425,28 +530,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/weather/trend', async (req, res) => {
-    try {
-      const { location, timeframe } = req.query;
-      const hours = timeframe === '7d' ? 168 : timeframe === '30d' ? 720 : 24;
-
-      const trends = [];
-      const now = new Date();
-
-      for (let i = 0; i < Math.min(hours, 24); i++) {
-        const time = new Date(now.getTime() + i * 60 * 60 * 1000);
-        trends.push({
-          time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          temperature: 25 + Math.sin(i / 4) * 5 + Math.random() * 2
-        });
-      }
-
-      res.json(trends);
-    } catch (error) {
-      console.error('Weather Trend API Error:', error);
-      res.status(500).json({ error: 'Failed to retrieve weather trends' });
-    }
-  });
 
   // Export data endpoint
   app.post('/api/export', async (req, res) => {

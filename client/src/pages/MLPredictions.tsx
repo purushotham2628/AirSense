@@ -73,6 +73,7 @@ export default function MLPredictions() {
 
   useEffect(() => {
     fetchMLData();
+    // eslint-disable-next-line
   }, [location, timeframe]);
 
   const handleRefresh = () => {

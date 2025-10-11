@@ -2,7 +2,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, Download } from "lucide-react";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface DataPoint {
   time: string;
@@ -11,13 +11,37 @@ interface DataPoint {
 }
 
 interface AQIChartProps {
-  data: DataPoint[];
+  data?: DataPoint[];
   title?: string;
   showPrediction?: boolean;
+  location?: string;
 }
 
-export default function AQIChart({ data, title = "AQI Trends", showPrediction = false }: AQIChartProps) {
+export default function AQIChart({ data: initialData, title = "AQI Trends", showPrediction = false, location = "Bengaluru" }: AQIChartProps) {
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
+  const [data, setData] = useState<DataPoint[]>(initialData || []);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!initialData) {
+      fetchTrendData();
+    }
+  }, [timeRange, location]);
+
+  const fetchTrendData = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/aqi/${encodeURIComponent(location)}/trend?timeframe=${timeRange}`);
+      if (response.ok) {
+        const trendData = await response.json();
+        setData(trendData);
+      }
+    } catch (error) {
+      console.error('Failed to fetch trend data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleExport = () => {
     try {
