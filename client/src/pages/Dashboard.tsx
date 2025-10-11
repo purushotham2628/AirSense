@@ -22,7 +22,7 @@ export default function Dashboard() {
     setError(null);
     setCityData(null);
     try {
-      const cityListResponse = await fetch("http://localhost:5000/api/cities/supported");
+      const cityListResponse = await fetch("/api/cities/supported");
       if (!cityListResponse.ok) {
         setError("API request failed: " + cityListResponse.status);
         return;
@@ -46,7 +46,7 @@ export default function Dashboard() {
       }
 
       // Fetch AQI data
-      const aqiResponse = await fetch(`http://localhost:5000/api/aqi/${encodeURIComponent(city.name)}`);
+      const aqiResponse = await fetch(`/api/aqi/${encodeURIComponent(city.name)}`);
       if (!aqiResponse.ok) {
         setError("Failed to fetch AQI data: " + aqiResponse.status);
         return;
@@ -54,7 +54,7 @@ export default function Dashboard() {
       const aqiData = await aqiResponse.json();
 
       // Fetch weather data separately from correct endpoint
-      const weatherResponse = await fetch(`http://localhost:5000/api/weather/${encodeURIComponent(city.name)}`);
+      const weatherResponse = await fetch(`/api/weather/${encodeURIComponent(city.name)}`);
       if (!weatherResponse.ok) {
         setError("Failed to fetch weather data: " + weatherResponse.status);
         return;

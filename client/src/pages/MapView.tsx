@@ -12,7 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, RefreshCw } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MapPin, RefreshCw, TrendingUp } from "lucide-react";
+import { AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
@@ -24,10 +26,18 @@ L.Icon.Default.mergeOptions({
 });
 
 interface AQIData {
-  name: string;     // city/town name, used as id and display
+  name: string;
   lat: number;
   lon: number;
   aqi: number;
+  temperature?: number;
+  humidity?: number;
+  windSpeed?: number;
+}
+
+interface TrendData {
+  time: string;
+  value: number;
 }
 
 export default function MapView() {
@@ -35,6 +45,8 @@ export default function MapView() {
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [mapLayer, setMapLayer] = useState("aqi");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [aqiTrends, setAqiTrends] = useState<TrendData[]>([]);
+  const [weatherTrends, setWeatherTrends] = useState<TrendData[]>([]);
 
   const getAQIColor = (aqi: number) => {
     if (aqi <= 50) return "bg-chart-1";
@@ -62,14 +74,21 @@ export default function MapView() {
       if (!res.ok) throw new Error("Could not fetch cities.");
       const { cities } = await res.json();
       const aqiPromises = cities.map(async (city: { name: string, lat: number, lon: number }) => {
-        const response = await fetch(`/api/aqi/${encodeURIComponent(city.name)}`);
-        if (!response.ok) return null;
-        const aqiData = await response.json();
+        const aqiResponse = await fetch(`/api/aqi/${encodeURIComponent(city.name)}`);
+        if (!aqiResponse.ok) return null;
+        const aqiData = await aqiResponse.json();
+
+        const weatherResponse = await fetch(`/api/weather/${encodeURIComponent(city.name)}`);
+        const weatherData = weatherResponse.ok ? await weatherResponse.json() : {};
+
         return {
           name: city.name,
           lat: city.lat,
           lon: city.lon,
           aqi: aqiData.currentAQI ?? 0,
+          temperature: weatherData.temperature ?? null,
+          humidity: weatherData.humidity ?? null,
+          windSpeed: weatherData.windSpeed ?? null,
         } as AQIData;
       });
       const allLocations = (await Promise.all(aqiPromises)).filter(Boolean) as AQIData[];
@@ -80,10 +99,33 @@ export default function MapView() {
     setIsRefreshing(false);
   };
 
+  const fetchTrends = async (location: string) => {
+    try {
+      const aqiRes = await fetch(`/api/ml/hourly?location=${encodeURIComponent(location)}&timeframe=24h`);
+      if (aqiRes.ok) {
+        const aqiData = await aqiRes.json();
+        setAqiTrends(aqiData.map((d: any) => ({ time: d.time, value: d.predicted || d.actual })));
+      }
+
+      const weatherRes = await fetch(`/api/weather/trend?location=${encodeURIComponent(location)}&timeframe=24h`);
+      if (weatherRes.ok) {
+        const weatherData = await weatherRes.json();
+        setWeatherTrends(weatherData);
+      }
+    } catch (e) {
+      console.error('Failed to fetch trends:', e);
+    }
+  };
+
   useEffect(() => {
     fetchAQILocations();
-    // eslint-disable-next-line
   }, []);
+
+  useEffect(() => {
+    if (selectedLocation) {
+      fetchTrends(selectedLocation);
+    }
+  }, [selectedLocation]);
 
   const handleRefresh = async () => {
     await fetchAQILocations();
@@ -124,6 +166,14 @@ export default function MapView() {
           </Button>
         </div>
       </div>
+      <Tabs defaultValue="map" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="map">Map View</TabsTrigger>
+          <TabsTrigger value="trends">AQI Trends</TabsTrigger>
+          <TabsTrigger value="weather">Weather Trends</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="map" className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <Card className="h-[600px]">
@@ -286,6 +336,80 @@ export default function MapView() {
           </Card>
         </div>
       </div>
+        </TabsContent>
+
+        <TabsContent value="trends" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                AQI Trends & Predictions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {selectedLocation ? (
+                <ResponsiveContainer width="100%" height={400}>
+                  <AreaChart data={aqiTrends}>
+                    <defs>
+                      <linearGradient id="aqiGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                    <XAxis dataKey="time" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Area type="monotone" dataKey="value" stroke="hsl(var(--chart-1))" fillOpacity={1} fill="url(#aqiGradient)" name="AQI" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Select a location on the map to view AQI trends</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="weather" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Weather Trends & Predictions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {selectedLocation ? (
+                <ResponsiveContainer width="100%" height={400}>
+                  <AreaChart data={weatherTrends}>
+                    <defs>
+                      <linearGradient id="weatherGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--chart-4))" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="hsl(var(--chart-4))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                    <XAxis dataKey="time" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Area type="monotone" dataKey="temperature" stroke="hsl(var(--chart-4))" fillOpacity={1} fill="url(#weatherGradient)" name="Temperature (°C)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Select a location on the map to view weather trends</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
