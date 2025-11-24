@@ -61,17 +61,16 @@ const INDIAN_CITIES: Record<string, CityCoordinates> = {
 };
 
 export class OpenWeatherService {
-  private apiKey: string;
+  // Read API key lazily to ensure dotenv has run before we access it
   private baseUrl = 'https://api.openweathermap.org';
-  
+
   constructor() {
-    // For demo purposes, we'll use mock data if no API key is provided
-    // In production, users should provide their own OpenWeather API key
-    this.apiKey = process.env.OPENWEATHER_API_KEY || '';
-    
-    if (!this.apiKey) {
-      console.warn('OpenWeather API key not found. Using mock data. Please set OPENWEATHER_API_KEY in your .env file.');
-    }
+    // Intentionally minimal constructor. We read the API key at request time
+    // to avoid issues with module initialization order.
+  }
+
+  private getApiKey(): string {
+    return (process.env.OPENWEATHER_API_KEY || '').toString().trim();
   }
 
   async getAQIData(cityName: string): Promise<any> {
@@ -80,13 +79,14 @@ export class OpenWeatherService {
       throw new Error(`City '${cityName}' not found in supported cities`);
     }
 
-    if (!this.apiKey || this.apiKey === 'demo') {
+    const apiKey = this.getApiKey();
+    if (!apiKey || apiKey === 'demo') {
       // Return mock data for demo purposes
       return this.getMockAQIData(city);
     }
 
     try {
-      const url = `${this.baseUrl}/data/2.5/air_pollution?lat=${city.lat}&lon=${city.lon}&appid=${this.apiKey}`;
+  const url = `${this.baseUrl}/data/2.5/air_pollution?lat=${city.lat}&lon=${city.lon}&appid=${apiKey}`;
       const response = await fetch(url);
       
       if (!response.ok) {
@@ -108,12 +108,13 @@ export class OpenWeatherService {
       throw new Error(`City '${cityName}' not found`);
     }
 
-    if (!this.apiKey || this.apiKey === 'demo') {
+    const apiKey = this.getApiKey();
+    if (!apiKey || apiKey === 'demo') {
       return this.getMockWeatherData(city);
     }
 
     try {
-      const url = `${this.baseUrl}/data/2.5/weather?lat=${city.lat}&lon=${city.lon}&appid=${this.apiKey}&units=metric`;
+  const url = `${this.baseUrl}/data/2.5/weather?lat=${city.lat}&lon=${city.lon}&appid=${apiKey}&units=metric`;
       const response = await fetch(url);
       
       if (!response.ok) {
@@ -149,8 +150,21 @@ export class OpenWeatherService {
   }
 
   private getCityCoordinates(cityName: string): CityCoordinates | null {
-    const normalizedName = cityName.toLowerCase().replace(/\s+/g, '');
-    return INDIAN_CITIES[normalizedName] || null;
+    // Normalize by removing non-letters and compare heuristically so inputs like
+    // "Bengaluru Central" still resolve to "bengaluru".
+    const normalizedName = cityName.toLowerCase().replace(/[^a-z]/g, '');
+
+    // Exact match first
+    if (INDIAN_CITIES[normalizedName]) return INDIAN_CITIES[normalizedName];
+
+    // Fallback: try to find a key that is included in the normalized input
+    for (const key of Object.keys(INDIAN_CITIES)) {
+      if (normalizedName.includes(key) || key.includes(normalizedName)) {
+        return INDIAN_CITIES[key];
+      }
+    }
+
+    return null;
   }
 
   private transformAQIData(data: OpenWeatherAQIResponse, city: CityCoordinates) {

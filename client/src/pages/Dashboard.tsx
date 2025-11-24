@@ -62,6 +62,7 @@ export default function Dashboard() {
       }
       const weatherData = await weatherResponse.json();
 
+      // Use nullish coalescing to avoid incorrect fallback
       setCityData({
         location: city.name,
         lat: city.lat,

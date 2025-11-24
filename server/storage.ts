@@ -103,7 +103,8 @@ export class MemStorage implements IStorage {
       humidity: 65,
       windSpeed: 12,
       timestamp: new Date(),
-      source: "openweather"
+      // This is seeded mock data; mark it as mock so it doesn't pretend to be live
+      source: "mock"
     };
     this.aqiReadings.set(`current-${mockAQIReading.id}`, mockAQIReading);
   }

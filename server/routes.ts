@@ -451,19 +451,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { location, timeframe } = req.query;
       const hours = timeframe === '7d' ? 168 : timeframe === '30d' ? 720 : 24;
+      // Use recent stored AQI readings to produce simple, deterministic predictions
+      const limit = Math.min(24, hours);
+      const loc = location ? String(location) : 'Bengaluru Central';
 
-      const predictions = [];
+      const recentReadings = await storage.getAQIReadings(loc, 24);
+
+      // If we don't have any readings, fall back to a safe default
+      if (!recentReadings || recentReadings.length === 0) {
+        return res.json([]);
+      }
+
+      const last = recentReadings[0];
+
+      // Compute average hourly delta from the last few readings (up to 4)
+      const deltas: number[] = [];
+      const window = Math.min(4, recentReadings.length);
+      for (let i = 0; i < window - 1; i++) {
+        deltas.push(recentReadings[i].aqi - recentReadings[i + 1].aqi);
+      }
+
+      const avgDelta = deltas.length > 0 ? deltas.reduce((a, b) => a + b, 0) / deltas.length : 0;
+
+      const predictions: any[] = [];
       const now = new Date();
 
-      for (let i = 0; i < Math.min(hours, 24); i++) {
+      for (let i = 0; i < limit; i++) {
         const time = new Date(now.getTime() + i * 60 * 60 * 1000);
-        const baseAQI = 80 + Math.sin(i / 3) * 30 + Math.random() * 20;
+        const predicted = Math.max(0, Math.round(last.aqi + avgDelta * (i + 1)));
+        const actual = recentReadings[i] ? recentReadings[i].aqi : null;
+        const variance = deltas.length > 0 ? Math.abs(deltas.reduce((a, b) => a + Math.pow(b - avgDelta, 2), 0) / deltas.length) : 0;
+        const confidence = Math.max(40, Math.min(95, Math.round(85 - Math.sqrt(variance))));
 
         predictions.push({
           time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          actual: i < 12 ? Math.round(baseAQI) : null,
-          predicted: Math.round(baseAQI + (Math.random() - 0.5) * 10),
-          confidence: 85 + Math.random() * 10
+          actual,
+          predicted,
+          confidence
         });
       }
 

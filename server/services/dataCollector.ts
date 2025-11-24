@@ -5,7 +5,8 @@ import cron from 'node-cron';
 export class DataCollectorService {
   private isRunning: boolean = false;
   private collectionInterval: NodeJS.Timeout | null = null;
-  private cronJob: cron.ScheduledTask | null = null;
+  // Use a loose type here to avoid depending on ambient cron namespace types
+  private cronJob: any | null = null;
 
   private defaultCities = ['bengaluru', 'delhi', 'mumbai', 'chennai', 'hyderabad'];
 

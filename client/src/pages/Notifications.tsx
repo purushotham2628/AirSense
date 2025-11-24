@@ -67,7 +67,47 @@ export default function Notifications() {
   const loadNotifications = async () => {
     setIsLoading(true);
     try {
-      // Simulate API call - replace with actual API
+      // Try to fetch current AQI from the server and generate notifications dynamically
+      // Default location for notifications (can be replaced with user preference later)
+      const location = 'Bengaluru Central';
+
+      // Use saved threshold if present (loadSettings may run later)
+      const savedSettings = localStorage.getItem('notificationSettings');
+      const threshold = savedSettings ? JSON.parse(savedSettings).aqiThreshold : settings.aqiThreshold;
+
+      const resp = await fetch(`/api/aqi/${encodeURIComponent(location)}`);
+      if (!resp.ok) throw new Error('AQI API failed');
+      const json = await resp.json();
+
+      const liveNotifications: Notification[] = [];
+
+      if (json.currentAQI && json.currentAQI >= threshold) {
+        liveNotifications.push({
+          id: `aqi-${Date.now()}`,
+          type: 'alert',
+          title: 'High AQI Alert',
+          message: `AQI levels in ${json.location} are ${json.currentAQI}. Avoid outdoor activities and wear masks when going outside.`,
+          timestamp: new Date().toISOString(),
+          read: false,
+          priority: 'high'
+        });
+      } else {
+        liveNotifications.push({
+          id: `aqi-ok-${Date.now()}`,
+          type: 'info',
+          title: 'Air Quality Normal',
+          message: `Current AQI in ${json.location} is ${json.currentAQI}. Conditions are within the configured threshold.`,
+          timestamp: new Date().toISOString(),
+          read: true,
+          priority: 'low'
+        });
+      }
+
+      setNotifications(liveNotifications);
+    } catch (error) {
+      console.error('Failed to load notifications:', error);
+
+      // Fallback to original mock notifications so UX remains consistent
       const mockNotifications: Notification[] = [
         {
           id: '1',
@@ -86,29 +126,9 @@ export default function Notifications() {
           timestamp: new Date(Date.now() - 900000).toISOString(), // 15 minutes ago
           read: false,
           priority: 'medium'
-        },
-        {
-          id: '3',
-          type: 'info',
-          title: 'Air Quality Improved',
-          message: 'Koramangala AQI dropped to Good levels (45). Safe for outdoor activities and exercise.',
-          timestamp: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-          read: true,
-          priority: 'low'
-        },
-        {
-          id: '4',
-          type: 'alert',
-          title: 'Health Advisory',
-          message: 'Current pollution levels may affect sensitive individuals. Children and elderly should limit outdoor exposure.',
-          timestamp: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
-          read: true,
-          priority: 'high'
         }
       ];
       setNotifications(mockNotifications);
-    } catch (error) {
-      console.error('Failed to load notifications:', error);
     } finally {
       setIsLoading(false);
     }
