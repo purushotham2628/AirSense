@@ -81,12 +81,12 @@ export class OpenWeatherService {
 
     const apiKey = this.getApiKey();
     if (!apiKey || apiKey === 'demo') {
-      // Return mock data for demo purposes
-      return this.getMockAQIData(city);
+      // Throw error instead of returning mock data
+      throw new Error('OPENWEATHER_API_KEY is missing or invalid. Please configure it in .env file');
     }
 
     try {
-  const url = `${this.baseUrl}/data/2.5/air_pollution?lat=${city.lat}&lon=${city.lon}&appid=${apiKey}`;
+      const url = `${this.baseUrl}/data/2.5/air_pollution?lat=${city.lat}&lon=${city.lon}&appid=${apiKey}`;
       const response = await fetch(url);
       
       if (!response.ok) {
@@ -97,12 +97,10 @@ export class OpenWeatherService {
       return this.transformAQIData(data, city);
     } catch (error) {
       console.error('OpenWeather AQI API Error:', error);
-      // Fallback to mock data on error
-      return this.getMockAQIData(city);
+      // Throw error instead of falling back to mock data
+      throw new Error(`Failed to fetch real AQI data from OpenWeather API: ${error}`);
     }
-  }
-
-  async getWeatherData(cityName: string): Promise<any> {
+  }  async getWeatherData(cityName: string): Promise<any> {
     const city = this.getCityCoordinates(cityName);
     if (!city) {
       throw new Error(`City '${cityName}' not found`);
@@ -110,11 +108,12 @@ export class OpenWeatherService {
 
     const apiKey = this.getApiKey();
     if (!apiKey || apiKey === 'demo') {
-      return this.getMockWeatherData(city);
+      // Throw error instead of returning mock data
+      throw new Error('OPENWEATHER_API_KEY is missing or invalid. Please configure it in .env file');
     }
 
     try {
-  const url = `${this.baseUrl}/data/2.5/weather?lat=${city.lat}&lon=${city.lon}&appid=${apiKey}&units=metric`;
+      const url = `${this.baseUrl}/data/2.5/weather?lat=${city.lat}&lon=${city.lon}&appid=${apiKey}&units=metric`;
       const response = await fetch(url);
       
       if (!response.ok) {
@@ -125,11 +124,10 @@ export class OpenWeatherService {
       return this.transformWeatherData(data, city);
     } catch (error) {
       console.error('OpenWeather Weather API Error:', error);
-      return this.getMockWeatherData(city);
+      // Throw error instead of falling back to mock data
+      throw new Error(`Failed to fetch real weather data from OpenWeather API: ${error}`);
     }
-  }
-
-  async getMultiCityAQI(cityNames: string[]): Promise<any[]> {
+  }  async getMultiCityAQI(cityNames: string[]): Promise<any[]> {
     const promises = cityNames.map(city => this.getAQIData(city));
     
     try {
