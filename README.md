@@ -601,6 +601,40 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
+## 🧠 Machine Learning Predictions
+
+This project includes a lightweight, server-side time-series forecasting implementation used for short-term AQI and temperature predictions. The goal is to provide reliable near-term forecasts without heavy external dependencies so it can run on modest servers.
+
+- Model implemented: **Holt's Linear Exponential Smoothing (Double Exponential Smoothing)**
+  - Captures level and linear trend in recent observations.
+  - Lightweight, robust for short-term forecasts (hours to a few days).
+  - Implemented in `server/services/predictionService.ts`.
+
+- How it works:
+  1. The service reads recent hourly AQI and temperature readings from the in-memory storage (or database if available).
+  2. It fits a Holt's linear model with configurable smoothing parameters (alpha, beta) and generates multi-step forecasts.
+  3. Hourly forecasts are aggregated to daily forecasts for weekly summaries.
+  4. A simple confidence score is computed from residual standard deviation.
+
+- Why this choice:
+  - Fast to compute, no heavy ML libraries required, and works well with limited historic data.
+  - Easier to run on small servers or Raspberry Pi-class devices collecting IoT sensor data.
+
+- Limitations & Next steps:
+  - Holt's linear smoothing assumes a linear trend and does not model seasonality explicitly. For better accuracy across daily/weekly seasonal patterns, consider SARIMA, Prophet, or LSTM-based models.
+  - For high-accuracy production forecasting, recommended next steps:
+    - Add ARIMA/SARIMA (statsmodels in Python) integration and evaluate with cross-validation.
+    - Optionally train a small LSTM or Temporal Convolutional Network on historical data (requires more data and GPU for training).
+    - Add automated backtesting and performance metrics (MAE, RMSE) recorded to assist model selection.
+
+- How to use the prediction endpoints:
+  - Hourly AQI: `GET /api/ml/hourly?location=Bengaluru Central&timeframe=24h`
+  - Weekly AQI: `GET /api/ml/weekly?location=Bengaluru Central&days=7`
+  - Weather hourly predictions: `GET /api/weather/predictions/Bengaluru Central?timeframe=24h`
+
+If you want, I can implement an ARIMA-based backend (via a Python microservice) or add an LSTM trainer and inference pipeline; tell me which direction you'd prefer and I will scaffold it and add CI tests and evaluation metrics.
+
+
 ## 📞 Support
 
 ### Getting Help

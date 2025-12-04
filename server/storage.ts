@@ -102,7 +102,9 @@ export class MemStorage implements IStorage {
       temperature: 28,
       humidity: 65,
       windSpeed: 12,
-      timestamp: new Date(),
+      // Make the seeded 'current' mock slightly older so real collector readings (if available)
+      // will replace it when the data collector runs on startup.
+      timestamp: new Date(now.getTime() - 60 * 60 * 1000),
       // This is seeded mock data; mark it as mock so it doesn't pretend to be live
       source: "mock"
     };
@@ -147,6 +149,14 @@ export class MemStorage implements IStorage {
     const readings = Array.from(this.aqiReadings.values())
       .filter(r => r.location.toLowerCase().includes(location.toLowerCase()))
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+    if (readings.length === 0) return undefined;
+
+    // Prefer the latest real reading from OpenWeather if available
+    const live = readings.find(r => r.source && r.source.toLowerCase().includes('openweather'));
+    if (live) return live;
+
+    // Otherwise return the newest reading (may be mock)
     return readings[0];
   }
 

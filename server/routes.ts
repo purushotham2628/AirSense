@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import { aiService } from "./services/aiService";
 import { VoiceService } from "./services/voiceService";
 import { openWeatherService } from "./services/openWeatherService";
+import { predictionService } from "./services/predictionService";
 import { insertChatMessageSchema, insertVoiceCommandSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -350,26 +351,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { location } = req.params;
       const { timeframe } = req.query;
-
       const hours = timeframe === '7d' ? 168 : timeframe === '30d' ? 720 : 24;
-      const predictions = [];
-      const now = new Date();
+      const loc = location || 'Bengaluru Central';
 
-      for (let i = 0; i < Math.min(hours, 24); i++) {
-        const time = new Date(now.getTime() + i * 60 * 60 * 1000);
-        const baseTemp = 28 + Math.sin(i / 4) * 5;
+      const preds = await predictionService.predictTemperatureHourly(loc, Math.min(hours, 72));
 
-        predictions.push({
-          time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          temperature: Math.round((baseTemp + Math.random() * 2) * 10) / 10,
-          feelsLike: Math.round((baseTemp + 2 + Math.random() * 2) * 10) / 10,
-          humidity: Math.round(60 + Math.sin(i / 3) * 20 + Math.random() * 5),
-          condition: i % 6 === 0 ? 'Cloudy' : i % 4 === 0 ? 'Partly Cloudy' : 'Clear',
-          precipitationChance: Math.round(Math.random() * 30)
-        });
-      }
+      // Map into previous response shape
+      const mapped = preds.map(p => ({
+        time: new Date(p.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        temperature: p.predicted,
+        feelsLike: Math.round((p.predicted + 2) * 10) / 10,
+        humidity: null,
+        condition: 'Unknown',
+        precipitationChance: 0,
+        confidence: p.confidence
+      }));
 
-      res.json(predictions);
+      res.json(mapped);
     } catch (error) {
       console.error('Weather Predictions API Error:', error);
       res.status(500).json({ error: 'Failed to retrieve weather predictions' });
@@ -451,47 +449,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { location, timeframe } = req.query;
       const hours = timeframe === '7d' ? 168 : timeframe === '30d' ? 720 : 24;
-      // Use recent stored AQI readings to produce simple, deterministic predictions
-      const limit = Math.min(24, hours);
       const loc = location ? String(location) : 'Bengaluru Central';
 
-      const recentReadings = await storage.getAQIReadings(loc, 24);
+      const preds = await predictionService.predictAQIHourly(loc, Math.min(hours, 72));
 
-      // If we don't have any readings, fall back to a safe default
-      if (!recentReadings || recentReadings.length === 0) {
-        return res.json([]);
-      }
+      // map times to short time string
+      const mapped = preds.map(p => ({
+        time: new Date(p.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        actual: null,
+        predicted: p.predicted,
+        confidence: p.confidence
+      }));
 
-      const last = recentReadings[0];
-
-      // Compute average hourly delta from the last few readings (up to 4)
-      const deltas: number[] = [];
-      const window = Math.min(4, recentReadings.length);
-      for (let i = 0; i < window - 1; i++) {
-        deltas.push(recentReadings[i].aqi - recentReadings[i + 1].aqi);
-      }
-
-      const avgDelta = deltas.length > 0 ? deltas.reduce((a, b) => a + b, 0) / deltas.length : 0;
-
-      const predictions: any[] = [];
-      const now = new Date();
-
-      for (let i = 0; i < limit; i++) {
-        const time = new Date(now.getTime() + i * 60 * 60 * 1000);
-        const predicted = Math.max(0, Math.round(last.aqi + avgDelta * (i + 1)));
-        const actual = recentReadings[i] ? recentReadings[i].aqi : null;
-        const variance = deltas.length > 0 ? Math.abs(deltas.reduce((a, b) => a + Math.pow(b - avgDelta, 2), 0) / deltas.length) : 0;
-        const confidence = Math.max(40, Math.min(95, Math.round(85 - Math.sqrt(variance))));
-
-        predictions.push({
-          time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          actual,
-          predicted,
-          confidence
-        });
-      }
-
-      res.json(predictions);
+      res.json(mapped);
     } catch (error) {
       console.error('ML Hourly API Error:', error);
       res.status(500).json({ error: 'Failed to retrieve hourly predictions' });
@@ -501,15 +471,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/ml/weekly', async (req, res) => {
     try {
       const { location } = req.query;
-      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const loc = location ? String(location) : 'Bengaluru Central';
+      const days = parseInt(String(req.query.days || '7'), 10) || 7;
 
-      const forecast = days.map(day => ({
-        day,
-        min: 60 + Math.floor(Math.random() * 30),
-        avg: 90 + Math.floor(Math.random() * 40),
-        max: 130 + Math.floor(Math.random() * 50),
-        predicted: 95 + Math.floor(Math.random() * 35)
-      }));
+      const forecast = await predictionService.predictAQIWeekly(loc, days);
 
       res.json(forecast);
     } catch (error) {
