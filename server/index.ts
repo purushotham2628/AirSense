@@ -63,6 +63,10 @@ app.use((req, res, next) => {
 
 (async () => {
   const server = await registerRoutes(app);
+  
+  // Trigger immediate data collection on startup to ensure live data is available
+  console.log('🚀 Triggering initial data collection from OpenWeather API...');
+  dataCollector.collectForCity('bengaluru').catch(e => console.error('Initial collection failed:', e));
 
   // Error handler
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

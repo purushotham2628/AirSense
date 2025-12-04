@@ -52,11 +52,10 @@ export class MemStorage implements IStorage {
     this.iotReadings = new Map();
     this.voiceCommands = new Map();
     
-    // Initialize with some mock AQI data for immediate functionality
-    this.initializeMockData();
+    // No mock data initialization - only real OpenWeather readings will be stored
   }
 
-  private initializeMockData() {
+  private initializeMockDataRemoved() {
     // Create multiple mock readings for different locations and times
     const locations = ['Bengaluru Central', 'Whitefield', 'Electronic City', 'Koramangala'];
     const now = new Date();

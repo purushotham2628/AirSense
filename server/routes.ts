@@ -196,12 +196,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get current AQI data
+  // Get current AQI data (only from real OpenWeather API, no fallback to mock)
   app.get('/api/aqi/:location?', async (req, res) => {
     try {
       const location = req.params.location || 'Bengaluru Central';
 
       const aqiData = await openWeatherService.getAQIData(location);
+      
+      // Only return if source is openweather (not mock)
+      if (aqiData.source && aqiData.source.toLowerCase() === 'mock') {
+        return res.status(503).json({ error: 'OpenWeather API data unavailable. Please ensure OPENWEATHER_API_KEY is valid and active.' });
+      }
 
       res.json({
         currentAQI: aqiData.aqi,
@@ -214,11 +219,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           no2: aqiData.no2,
           so2: aqiData.so2
         },
-        timestamp: aqiData.timestamp
+        timestamp: aqiData.timestamp,
+        source: aqiData.source
       });
     } catch (error) {
       console.error('AQI API Error:', error);
-      res.status(500).json({ error: 'Failed to retrieve AQI data' });
+      res.status(500).json({ error: 'Failed to retrieve AQI data from OpenWeather API' });
     }
   });
 
