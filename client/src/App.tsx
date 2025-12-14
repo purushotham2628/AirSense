@@ -14,7 +14,8 @@ import ExportData from "@/pages/ExportData";
 import Settings from "@/pages/Settings";
 import MapView from "@/pages/MapView";
 import IoTDevices from "@/pages/IoTDevices";
-import MLPredictions from "@/pages/MLPredictions";
+// Use the improved ML predictions page with better fallbacks and animations
+import MLPredictions from "@/pages/MLPredictions_improved";
 import NotFound from "@/pages/not-found";
 
 function Router() {

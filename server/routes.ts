@@ -11,31 +11,14 @@ import { randomUUID } from "crypto";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
-  // Helper function to get current AQI context
-  async function getCurrentAQIContext(location: string = "Bengaluru Central") {
+  // Helper function to get current AQI context - returns null if no real data available
+  async function getCurrentAQIContext(location: string = "Bengaluru") {
     try {
       const latestReading = await storage.getLatestAQIReading(location);
       
       if (!latestReading) {
-        // Fallback mock data if no readings available
-        return {
-          currentAQI: 125,
-          location: location,
-          pollutants: {
-            pm25: 35,
-            pm10: 68,
-            co: 1.2,
-            o3: 85,
-            no2: 42,
-            so2: 15
-          },
-          weather: {
-            temperature: 28,
-            humidity: 65,
-            windSpeed: 12
-          },
-          timestamp: new Date().toISOString()
-        };
+        console.warn(`No AQI reading found for ${location}`);
+        return null;
       }
       
       return {
@@ -50,33 +33,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           so2: latestReading.so2
         },
         weather: {
-          temperature: latestReading.temperature ?? 28,
-          humidity: latestReading.humidity ?? 65,
-          windSpeed: latestReading.windSpeed ?? 12
+          temperature: latestReading.temperature ?? 0,
+          humidity: latestReading.humidity ?? 0,
+          windSpeed: latestReading.windSpeed ?? 0
         },
         timestamp: latestReading.timestamp.toISOString()
       };
     } catch (error) {
       console.error('Error getting AQI context:', error);
-      // Return fallback data on error
-      return {
-        currentAQI: 125,
-        location: location,
-        pollutants: {
-          pm25: 35,
-          pm10: 68,
-          co: 1.2,
-          o3: 85,
-          no2: 42,
-          so2: 15
-        },
-        weather: {
-          temperature: 28,
-          humidity: 65,
-          windSpeed: 12
-        },
-        timestamp: new Date().toISOString()
-      };
+      return null;
     }
   }
 
@@ -89,8 +54,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Message and sessionId are required' });
       }
 
-      // Get current AQI context
+      // Get current AQI context - may be null if no real data available
       const context = await getCurrentAQIContext(location);
+      
+      if (!context) {
+        return res.status(503).json({ error: 'No real-time AQI data available. Ensure OpenWeather API is configured.' });
+      }
       
       // Get chat history for context
       const chatHistory = await storage.getChatHistory(sessionId, 10);
@@ -155,6 +124,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get current AQI context
       const context = await getCurrentAQIContext(location || entities.location);
+      
+      if (!context) {
+        return res.status(503).json({ error: 'No real-time AQI data available. Ensure OpenWeather API is configured.' });
+      }
       
       // Get voice-optimized response
       const voiceResponse = await aiService.getVoiceResponse(voicePrompt, context);
@@ -267,33 +240,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get AQI trend data for charts
+  // Get AQI trend data for charts - returns historical AQI readings only, no mock data
   app.get('/api/aqi/:location/trend', async (req, res) => {
     try {
       const { location } = req.params;
       const { timeframe } = req.query;
 
       const hours = timeframe === '7d' ? 168 : timeframe === '30d' ? 720 : 24;
-      const dataPoints = timeframe === '7d' ? 7 * 24 : timeframe === '30d' ? 30 * 24 : 24;
+      const startTime = new Date(Date.now() - hours * 60 * 60 * 1000);
+      const endTime = new Date();
 
-      const trendData = [];
-      const now = new Date();
+      // Get real historical readings from storage
+      const readings = await storage.getAQIReadingsByTimeRange(location, startTime, endTime);
 
-      for (let i = 0; i < dataPoints; i++) {
-        const time = new Date(now.getTime() - (dataPoints - i) * 60 * 60 * 1000);
-        const baseAQI = 80 + Math.sin(i / 8) * 30;
-        const variation = Math.random() * 20 - 10;
-
-        trendData.push({
-          time: timeframe === '24h'
-            ? time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-            : timeframe === '7d'
-            ? time.toLocaleDateString('en-US', { weekday: 'short', hour: '2-digit' })
-            : time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          aqi: Math.max(0, Math.round(baseAQI + variation)),
-          predicted: Math.max(0, Math.round(baseAQI + variation + (Math.random() - 0.5) * 10))
+      if (readings.length === 0) {
+        // Return 503 if no real data available
+        return res.status(503).json({ 
+          error: 'No historical AQI data available for this location',
+          message: 'Please ensure OpenWeather API is collecting data.' 
         });
       }
+
+      // Map readings to trend format
+      const trendData = readings.map(r => ({
+        time: timeframe === '24h'
+          ? r.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+          : timeframe === '7d'
+          ? r.timestamp.toLocaleDateString('en-US', { weekday: 'short', hour: '2-digit' })
+          : r.timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        aqi: r.aqi
+      }));
 
       res.json(trendData);
     } catch (error) {
@@ -350,24 +326,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Weather trend endpoint (moved before :location to avoid conflict)
+  // Weather trend endpoint - returns historical weather from AQI readings, no mock data
   app.get('/api/weather/trend', async (req, res) => {
     try {
       const { location, timeframe } = req.query;
       const hours = timeframe === '7d' ? 168 : timeframe === '30d' ? 720 : 24;
+      const startTime = new Date(Date.now() - hours * 60 * 60 * 1000);
+      const endTime = new Date();
 
-      const trends = [];
-      const now = new Date();
+      // Get real historical readings with weather data
+      const readings = await storage.getAQIReadingsByTimeRange(location as string, startTime, endTime);
 
-      for (let i = 0; i < Math.min(hours, 24); i++) {
-        const time = new Date(now.getTime() + i * 60 * 60 * 1000);
-        trends.push({
-          time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          temperature: 25 + Math.sin(i / 4) * 5 + Math.random() * 2,
-          humidity: 60 + Math.sin(i / 3) * 20 + Math.random() * 5,
-          windSpeed: 10 + Math.sin(i / 5) * 5 + Math.random() * 3
+      if (readings.length === 0) {
+        return res.status(503).json({ 
+          error: 'No weather data available',
+          message: 'Please ensure OpenWeather API is collecting data.'
         });
       }
+
+      // Extract weather trend data from readings
+      const trends = readings.map(r => ({
+        time: r.timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        temperature: r.temperature ?? 0,
+        humidity: r.humidity ?? 0,
+        windSpeed: r.windSpeed ?? 0
+      }));
 
       res.json(trends);
     } catch (error) {
@@ -487,9 +470,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { location, timeframe } = req.query;
       const hours = timeframe === '7d' ? 168 : timeframe === '30d' ? 720 : 24;
-      const loc = location ? String(location) : 'Bengaluru Central';
+      const loc = location ? String(location) : 'Bengaluru';
+
+      // First ensure we have real data to predict from
+      const latestReading = await storage.getLatestAQIReading(loc);
+      if (!latestReading) {
+        return res.status(503).json({ 
+          error: 'No real historical data available for predictions',
+          message: 'OpenWeather API must be configured to generate ML predictions.'
+        });
+      }
 
       const preds = await predictionService.predictAQIHourly(loc, Math.min(hours, 72));
+
+      if (!preds || preds.length === 0) {
+        return res.status(503).json({ 
+          error: 'Could not generate predictions',
+          message: 'Ensure sufficient historical data is available.'
+        });
+      }
 
       // map times to short time string
       const mapped = preds.map(p => ({
@@ -509,10 +508,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/ml/weekly', async (req, res) => {
     try {
       const { location } = req.query;
-      const loc = location ? String(location) : 'Bengaluru Central';
+      const loc = location ? String(location) : 'Bengaluru';
       const days = parseInt(String(req.query.days || '7'), 10) || 7;
 
+      // Ensure we have real historical data
+      const latestReading = await storage.getLatestAQIReading(loc);
+      if (!latestReading) {
+        return res.status(503).json({ 
+          error: 'No real historical data available for predictions',
+          message: 'OpenWeather API must be configured to generate ML predictions.'
+        });
+      }
+
       const forecast = await predictionService.predictAQIWeekly(loc, days);
+
+      if (!forecast || forecast.length === 0) {
+        return res.status(503).json({ 
+          error: 'Could not generate weekly forecast',
+          message: 'Ensure sufficient historical data is available.'
+        });
+      }
 
       res.json(forecast);
     } catch (error) {
@@ -617,43 +632,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // If no real data, generate sample data for demo
+      // If no real data available, return error instead of generating mock data
       if (exportData.length === 0) {
-        for (let i = 0; i < 100; i++) {
-          const timestamp = new Date(startDate.getTime() + (i * (endDate.getTime() - startDate.getTime()) / 100));
-          const location = locations?.[0] || 'Bengaluru Central';
-          
-          const record: any = {
-            timestamp: timestamp.toISOString(),
-            location: location
-          };
-          
-          if (dataTypes.aqi) {
-            record.aqi = 80 + Math.floor(Math.random() * 100);
-          }
-          
-          if (dataTypes.pollutants) {
-            record.pm25 = Math.round((25 + Math.random() * 50) * 100) / 100;
-            record.pm10 = Math.round((45 + Math.random() * 70) * 100) / 100;
-            record.co = Math.round((1 + Math.random() * 2) * 100) / 100;
-            record.o3 = Math.round(60 + Math.random() * 80);
-            record.no2 = Math.round(30 + Math.random() * 40);
-            record.so2 = Math.round(10 + Math.random() * 20);
-          }
-          
-          if (dataTypes.weather) {
-            record.temperature = Math.round((25 + Math.random() * 10) * 10) / 10;
-            record.humidity = Math.round(50 + Math.random() * 40);
-            record.windSpeed = Math.round((5 + Math.random() * 15) * 10) / 10;
-          }
-          
-          if (includeMetadata) {
-            record.source = 'demo';
-            record.id = `demo-${i}`;
-          }
-          
-          exportData.push(record);
-        }
+        return res.status(503).json({ 
+          error: 'No real data available for export',
+          message: 'Please ensure OpenWeather API is configured and collecting data.',
+          totalRecords: 0
+        });
       }
       
       res.json({ 

@@ -120,14 +120,25 @@ const AIChatbot = forwardRef<AIChatbotRef, AIChatbotProps>(({ sessionId, locatio
       }
       
       const data = await response.json();
-      
-      // Add AI response
+
+      // Build assistant message; include brief context snapshot if provided
+      let assistantContent = data.response || "";
+      if (data.context) {
+        try {
+          const ctx = data.context as any;
+          const ctxSummary = `\n\n[AQI: ${ctx.currentAQI} • ${ctx.location} • Updated: ${new Date(ctx.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}]`;
+          assistantContent = assistantContent + ctxSummary;
+        } catch (e) {
+          // ignore formatting errors
+        }
+      }
+
       const aiMessage: ChatMessage = {
         role: 'assistant',
-        content: data.response,
-        timestamp: data.timestamp
+        content: assistantContent,
+        timestamp: data.timestamp || new Date().toISOString()
       };
-      
+
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
       console.error('Chat error:', error);
@@ -166,21 +177,29 @@ const AIChatbot = forwardRef<AIChatbotRef, AIChatbotProps>(({ sessionId, locatio
       }
       
       const data = await response.json();
-      
+
       // Add user message
       const userMessage: ChatMessage = {
         role: 'user',
         content: transcript,
         timestamp: new Date().toISOString()
       };
-      
-      // Add AI response
+
+      // Build assistant message with context snapshot when available
+      let assistantContent = data.response || "";
+      if (data.context) {
+        try {
+          const ctx = data.context as any;
+          assistantContent = assistantContent + `\n\n[AQI: ${ctx.currentAQI} • ${ctx.location} • Updated: ${new Date(ctx.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}]`;
+        } catch (e) {}
+      }
+
       const aiMessage: ChatMessage = {
         role: 'assistant',
-        content: data.response,
-        timestamp: data.timestamp
+        content: assistantContent,
+        timestamp: data.timestamp || new Date().toISOString()
       };
-      
+
       setMessages(prev => [...prev, userMessage, aiMessage]);
       
       // Speak the response
