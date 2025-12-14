@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -13,6 +14,7 @@ import {
 import { Wind, BarChart3, Heart, Bell, Settings, Download, Map, Wifi, Brain } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
+import { motion } from "framer-motion";
 
 const menuItems = [
   {
@@ -65,6 +67,39 @@ const menuItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const [liveAQI, setLiveAQI] = useState<number | null>(null);
+  const [status, setStatus] = useState<string>("Loading");
+  const [updateTime, setUpdateTime] = useState<string>("now");
+
+  useEffect(() => {
+    const fetchLiveAQI = async () => {
+      try {
+        const response = await fetch("/api/aqi/Bengaluru");
+        if (response.ok) {
+          const data = await response.json();
+          setLiveAQI(data.currentAQI);
+          
+          // Determine status based on AQI
+          const aqi = data.currentAQI;
+          if (aqi <= 50) setStatus("Good");
+          else if (aqi <= 100) setStatus("Moderate");
+          else if (aqi <= 150) setStatus("Unhealthy for Sensitive");
+          else if (aqi <= 200) setStatus("Unhealthy");
+          else if (aqi <= 300) setStatus("Very Unhealthy");
+          else setStatus("Hazardous");
+          
+          setUpdateTime("just now");
+        }
+      } catch (error) {
+        console.error("Failed to fetch live AQI:", error);
+        setStatus("Unavailable");
+      }
+    };
+
+    fetchLiveAQI();
+    const interval = setInterval(fetchLiveAQI, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <Sidebar>
@@ -106,17 +141,40 @@ export function AppSidebar() {
           <SidebarGroupLabel>Current Status</SidebarGroupLabel>
           <SidebarGroupContent>
             <div className="p-3 space-y-2">
-              <div className="flex justify-between text-sm">
+              <motion.div 
+                className="flex justify-between text-sm"
+                animate={{ scale: [1, 1.02, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
                 <span className="text-muted-foreground">Live AQI</span>
-                <span className="font-mono font-medium">125</span>
-              </div>
+                <span className="font-mono font-medium">
+                  {liveAQI !== null ? liveAQI : "Loading..."}
+                </span>
+              </motion.div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Status</span>
-                <Badge className="bg-chart-2 text-white text-xs">Moderate</Badge>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <Badge 
+                    className={
+                      status.includes("Good") ? "bg-green-500" :
+                      status.includes("Moderate") ? "bg-yellow-500" :
+                      status.includes("Unhealthy for Sensitive") ? "bg-orange-500" :
+                      status.includes("Unhealthy") && !status.includes("Sensitive") ? "bg-red-500" :
+                      status.includes("Very") ? "bg-purple-600" :
+                      "bg-chart-2"
+                    }
+                  >
+                    {status}
+                  </Badge>
+                </motion.div>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Updated</span>
-                <span className="text-xs text-muted-foreground">2m ago</span>
+                <span className="text-xs text-muted-foreground">{updateTime}</span>
               </div>
             </div>
           </SidebarGroupContent>

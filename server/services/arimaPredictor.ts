@@ -85,16 +85,25 @@ export function arimaForecast(series: number[], steps: number, p: number = 3): {
   const forecasts: number[] = [];
   let workingData = [...data];
 
+  // Calculate trend from recent data
+  const recentDiff = data.length > 1 ? data[data.length - 1] - data[0] : 0;
+  const trend = recentDiff / Math.max(1, data.length - 1);
+
   for (let h = 0; h < steps; h++) {
     let pred = model.intercept;
     for (let j = 0; j < p && j < workingData.length; j++) {
       pred += model.coefficients[j] * (workingData[workingData.length - j - 1] - model.mean);
     }
     
-    // Add mean-reversion: pull back towards historical mean
-    pred = pred * 0.7 + model.mean * 0.3;
+    // Add trend component with decreasing strength (mean reversion)
+    const trendComponent = trend * Math.exp(-h / 12); // trend decays over time
+    pred = pred * 0.6 + model.mean * 0.3 + trendComponent * 0.1;
     
-    forecasts.push(Math.round(pred));
+    // Add some stochastic variation based on residual std
+    const variation = (Math.random() - 0.5) * model.residualStd * 0.8;
+    pred = pred + variation;
+    
+    forecasts.push(Math.round(Math.max(0, pred)));
     workingData.push(pred);
   }
 

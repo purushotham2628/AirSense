@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 import {
   Select,
   SelectContent,
@@ -55,6 +56,15 @@ export default function MapView() {
     if (aqi <= 200) return "bg-chart-4";
     if (aqi <= 300) return "bg-chart-5";
     return "bg-red-600";
+  };
+
+  const getAQIHexColor = (aqi: number) => {
+    if (aqi <= 50) return "#10b981";
+    if (aqi <= 100) return "#f59e0b";
+    if (aqi <= 150) return "#f97316";
+    if (aqi <= 200) return "#ef4444";
+    if (aqi <= 300) return "#8b5cf6";
+    return "#7f1d1d";
   };
 
   const getAQICategory = (aqi: number) => {
@@ -197,23 +207,28 @@ export default function MapView() {
                   attribution="&copy; OpenStreetMap contributors"
                 />
                 {locations.map((loc) => (
-                  <Marker
+                  <CircleMarker
                     key={loc.name}
-                    position={[loc.lat, loc.lon]}
+                    center={[loc.lat, loc.lon]}
+                    radius={8}
+                    pathOptions={{
+                      color: getAQIHexColor(loc.aqi),
+                      fillColor: getAQIHexColor(loc.aqi),
+                      fillOpacity: 0.7,
+                      weight: 2,
+                    }}
                     eventHandlers={{
                       click: () => setSelectedLocation(loc.name)
                     }}
                   >
-                    {selectedLocation === loc.name && (
-                      <Popup>
-                        <div>
-                          <strong>{loc.name}</strong>
-                          <br />
-                          AQI: {loc.aqi} ({getAQICategory(loc.aqi)})
-                        </div>
-                      </Popup>
-                    )}
-                  </Marker>
+                    <Popup>
+                      <div>
+                        <strong>{loc.name}</strong>
+                        <br />
+                        AQI: {loc.aqi} ({getAQICategory(loc.aqi)})
+                      </div>
+                    </Popup>
+                  </CircleMarker>
                 ))}
               </MapContainer>
             </CardContent>
@@ -309,7 +324,7 @@ export default function MapView() {
             <CardContent>
               <div className="space-y-2 max-h-[250px] overflow-y-auto">
                 {locations.map((location) => (
-                  <button
+                  <motion.button
                     key={location.name}
                     onClick={() => setSelectedLocation(location.name)}
                     className={`w-full flex items-center justify-between p-2 rounded-lg border transition-colors ${
@@ -317,6 +332,8 @@ export default function MapView() {
                         ? "bg-primary/10 border-primary"
                         : "hover:bg-muted/50"
                     }`}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
                     <span className="text-sm font-medium">{location.name}</span>
                     <div className="flex items-center gap-2">
@@ -329,7 +346,7 @@ export default function MapView() {
                         )}`}
                       />
                     </div>
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </CardContent>
