@@ -114,13 +114,23 @@ export default function MapView() {
       const aqiRes = await fetch(`/api/ml/hourly?location=${encodeURIComponent(location)}&timeframe=24h`);
       if (aqiRes.ok) {
         const aqiData = await aqiRes.json();
-        setAqiTrends(aqiData.map((d: any) => ({ time: d.time, value: d.predicted || d.actual })));
+        setAqiTrends(aqiData.map((d: any) => ({ 
+          time: d.time, 
+          value: Math.round(d.predicted || 0),
+          predicted: Math.round(d.predicted || 0),
+          confidence: d.confidence || 0
+        })));
       }
 
       const weatherRes = await fetch(`/api/weather/trend?location=${encodeURIComponent(location)}&timeframe=24h`);
       if (weatherRes.ok) {
         const weatherData = await weatherRes.json();
-        setWeatherTrends(weatherData);
+        setWeatherTrends(weatherData.map((d: any) => ({
+          time: d.time,
+          temperature: Math.round(d.temperature || 0),
+          humidity: Math.round(d.humidity || 0),
+          windSpeed: Math.round(d.windSpeed || 0)
+        })));
       }
     } catch (e) {
       console.error('Failed to fetch trends:', e);
@@ -374,11 +384,11 @@ export default function MapView() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="time" />
+                    <XAxis dataKey="time" height={40} />
                     <YAxis />
-                    <Tooltip />
+                    <Tooltip formatter={(value: any) => [Math.round(value), '']} />
                     <Legend />
-                    <Area type="monotone" dataKey="value" stroke="hsl(var(--chart-1))" fillOpacity={1} fill="url(#aqiGradient)" name="AQI" />
+                    <Area type="linear" dataKey="value" stroke="hsl(var(--chart-1))" fillOpacity={1} fill="url(#aqiGradient)" name="AQI Level" animationDuration={500} />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
@@ -410,11 +420,13 @@ export default function MapView() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip />
+                    <XAxis dataKey="time" height={40} />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <Tooltip formatter={(value: any) => [Math.round(value), '']} />
                     <Legend />
-                    <Area type="monotone" dataKey="temperature" stroke="hsl(var(--chart-4))" fillOpacity={1} fill="url(#weatherGradient)" name="Temperature (°C)" />
+                    <Area yAxisId="left" type="linear" dataKey="temperature" stroke="#ef4444" fillOpacity={0.6} fill="#fca5a5" name="Temperature (°C)" animationDuration={500} />
+                    <Area yAxisId="right" type="linear" dataKey="humidity" stroke="#3b82f6" fillOpacity={0.6} fill="#bfdbfe" name="Humidity (%)" animationDuration={500} />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (

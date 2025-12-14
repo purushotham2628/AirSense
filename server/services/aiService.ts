@@ -163,18 +163,44 @@ Format for voice: Short, clear sentences. No complex data unless specifically as
     const lowerMessage = userMessage.toLowerCase();
     const aqi = context.currentAQI;
     const category = this.getAQICategory(aqi);
+    const { pm25, pm10, co, o3, no2, so2 } = context.pollutants;
+    
+    // Pollutant-specific questions
+    if (lowerMessage.includes('pm2.5') || lowerMessage.includes('pm25')) {
+      return `PM2.5 levels in ${context.location} are currently at ${pm25} μg/m³. ${pm25 > 35 ? 'This is elevated - use air purifiers and consider wearing N95 masks outdoors.' : 'This is within acceptable levels.'}`;
+    }
+    if (lowerMessage.includes('pm10')) {
+      return `PM10 levels are currently ${pm10} μg/m³. ${pm10 > 60 ? 'This is moderate to high - limit outdoor activities if possible.' : 'This is acceptable.'}`;
+    }
+    if (lowerMessage.includes('no2') || lowerMessage.includes('nitrogen')) {
+      return `NO₂ (Nitrogen Dioxide) is at ${no2} μg/m³. ${no2 > 40 ? 'Elevated levels can affect respiratory health, especially for sensitive groups.' : 'Levels are normal.'}`;
+    }
+    if (lowerMessage.includes('o3') || lowerMessage.includes('ozone')) {
+      return `Ozone levels are ${o3} μg/m³. ${o3 > 100 ? 'High ozone can irritate airways - avoid strenuous outdoor exercise.' : 'Ozone levels are acceptable.'}`;
+    }
+    if (lowerMessage.includes('co') || lowerMessage.includes('carbon monoxide')) {
+      return `Carbon Monoxide is at ${co} mg/m³. ${co > 2 ? 'Concerning levels detected. Increase ventilation and limit vehicle exposure.' : 'Levels are safe.'}`;
+    }
+    if (lowerMessage.includes('so2') || lowerMessage.includes('sulfur')) {
+      return `Sulfur Dioxide is at ${so2} μg/m³. ${so2 > 20 ? 'Elevated SO₂ can cause respiratory irritation.' : 'Levels are normal.'}`;
+    }
+    
+    if (lowerMessage.includes('pollutant')) {
+      const pollutantText = `Here's a breakdown of current pollutants in ${context.location}:\n- PM2.5: ${pm25} μg/m³\n- PM10: ${pm10} μg/m³\n- NO₂: ${no2} μg/m³\n- Ozone: ${o3} μg/m³\n- CO: ${co} mg/m³\n- SO₂: ${so2} μg/m³\n\nOverall AQI is ${aqi} (${category}). ${this.getHealthAdvice(aqi)}`;
+      return pollutantText;
+    }
     
     if (lowerMessage.includes('aqi') || lowerMessage.includes('air quality')) {
-      return `The current AQI in ${context.location} is ${aqi}, which is considered ${category}. ${this.getHealthAdvice(aqi)}`;
+      return `The current AQI in ${context.location} is ${aqi}, which is ${category}. ${this.getHealthAdvice(aqi)}`;
     }
     
     if (lowerMessage.includes('safe') || lowerMessage.includes('outside') || lowerMessage.includes('exercise')) {
       if (aqi <= 100) {
-        return `With an AQI of ${aqi} (${category}), it's generally safe for outdoor activities. However, sensitive individuals should still be cautious.`;
+        return `With an AQI of ${aqi} (${category}), it's generally safe for outdoor activities. However, sensitive individuals should still be cautious, especially those with asthma.`;
       } else if (aqi <= 150) {
-        return `The AQI is ${aqi} (${category}). Sensitive groups should limit outdoor activities. Consider wearing a mask if you must go outside.`;
+        return `The AQI is ${aqi} (${category}). Sensitive groups should limit outdoor activities and avoid strenuous exercise. Consider wearing an N95 mask if you must go outside.`;
       } else {
-        return `The AQI is ${aqi} (${category}). I recommend staying indoors and avoiding outdoor exercise. If you must go outside, wear an N95 mask.`;
+        return `The AQI is ${aqi} (${category}). I strongly recommend staying indoors and avoiding outdoor exercise. If you must go outside, wear an N95/FFP2 mask and limit exposure time.`;
       }
     }
     
@@ -188,7 +214,7 @@ Format for voice: Short, clear sentences. No complex data unless specifically as
       return `Current weather in ${context.location}: ${context.weather.temperature}°C, ${context.weather.humidity}% humidity, wind speed ${context.weather.windSpeed} km/h. The AQI is ${aqi} (${category}).`;
     }
     
-    return `I'm here to help with air quality questions for ${context.location}. The current AQI is ${aqi} (${category}). You can ask me about safety recommendations, pollution levels, or health advice.`;
+    return `I'm here to help with air quality questions for ${context.location}. The current AQI is ${aqi} (${category}). You can ask me about specific pollutants (PM2.5, PM10, NO₂, Ozone, CO, SO₂), safety recommendations, or health advice.`;
   }
 
   private getMockVoiceResponse(userMessage: string, context: AQIContext): string {

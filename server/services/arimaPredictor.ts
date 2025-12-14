@@ -88,6 +88,10 @@ export function arimaForecast(series: number[], steps: number, p: number = 3): {
   // Calculate trend from recent data
   const recentDiff = data.length > 1 ? data[data.length - 1] - data[0] : 0;
   const trend = recentDiff / Math.max(1, data.length - 1);
+  
+  // Calculate base variation from historical std
+  const mean = model.mean;
+  const variance = model.residualStd > 0 ? model.residualStd : Math.abs(mean * 0.15);
 
   for (let h = 0; h < steps; h++) {
     let pred = model.intercept;
@@ -95,20 +99,26 @@ export function arimaForecast(series: number[], steps: number, p: number = 3): {
       pred += model.coefficients[j] * (workingData[workingData.length - j - 1] - model.mean);
     }
     
-    // Add trend component with decreasing strength (mean reversion)
-    const trendComponent = trend * Math.exp(-h / 12); // trend decays over time
-    pred = pred * 0.6 + model.mean * 0.3 + trendComponent * 0.1;
+    // Add trend component with gentle mean reversion
+    const trendStrength = Math.exp(-h / 15); // trend decays more gradually
+    const trendComponent = trend * trendStrength;
+    pred = pred * 0.5 + model.mean * 0.35 + trendComponent * 0.15;
     
-    // Add some stochastic variation based on residual std
-    const variation = (Math.random() - 0.5) * model.residualStd * 0.8;
+    // Add stronger stochastic variation for realistic fluctuations
+    const randomComponent = (Math.random() - 0.5) * 2; // normalized random in [-1, 1]
+    const variation = randomComponent * variance * 1.2; // increased variation amplitude
     pred = pred + variation;
+    
+    // Add periodic-like behavior (slight oscillation every few hours)
+    const periodicComponent = Math.sin(h / 4) * variance * 0.5;
+    pred = pred + periodicComponent;
     
     forecasts.push(Math.round(Math.max(0, pred)));
     workingData.push(pred);
   }
 
-  // Confidence inversely proportional to residual std
-  const confidence = Math.max(40, Math.min(90, Math.round(85 - model.residualStd * 2)));
+  // Confidence based on model quality
+  const confidence = Math.max(45, Math.min(85, Math.round(80 - model.residualStd * 1.5)));
 
   return { forecast: forecasts, confidence };
 }

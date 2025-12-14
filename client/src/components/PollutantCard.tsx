@@ -31,20 +31,19 @@ export default function PollutantCard({ name, value, unit, safeLimit, trend }: P
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      whileHover={{ scale: 1.02, translateY: -4 }}
+      whileHover={{ scale: 1.05, translateY: -6 }}
     >
-      <Card className={`hover-elevate backdrop-blur-sm bg-gradient-to-br ${status.bgGradient} border-2 border-white/20`} data-testid={`card-pollutant-${name.toLowerCase()}`}>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium text-gray-700">{name}</CardTitle>
+      <Card className={`hover-elevate backdrop-blur-sm bg-gradient-to-br ${status.bgGradient} border-2 border-white/20 shadow-lg`} data-testid={`card-pollutant-${name.toLowerCase()}`}>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-3">
+          <CardTitle className="text-base font-bold text-gray-800">{name}</CardTitle>
           <motion.div
             animate={{
-              y: trend === "up" ? [0, -4, 0] : trend === "down" ? [0, 4, 0] : [0, 0, 0],
-              rotate: trend === "up" ? 0 : trend === "down" ? 0 : 0,
+              y: trend === "up" ? [0, -3, 0] : trend === "down" ? [0, 3, 0] : [0, 0, 0],
             }}
-            transition={{ duration: 1.5, repeat: Infinity }}
+            transition={{ duration: 1.2, repeat: Infinity }}
           >
             <TrendIcon className={cn(
-              "h-5 w-5",
+              "h-6 w-6",
               trend === "up" ? "text-red-500" : 
               trend === "down" ? "text-green-500" : 
               "text-gray-400"
@@ -53,67 +52,51 @@ export default function PollutantCard({ name, value, unit, safeLimit, trend }: P
         </CardHeader>
         <CardContent>
           <motion.div
-            className="space-y-3"
+            className="space-y-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-end justify-between">
               <motion.div
-                className="text-3xl font-bold font-mono bg-gradient-to-r from-gray-700 to-gray-900 text-transparent bg-clip-text"
+                className="text-4xl font-bold font-mono text-gray-900"
                 data-testid="text-pollutant-value"
-                animate={{ scale: [1, 1.05, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
               >
                 {value}
               </motion.div>
               <motion.div
-                className="text-sm font-medium text-gray-600"
-                animate={{ opacity: [1, 0.7, 1] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
+                className="text-xs font-medium text-gray-600 mb-1"
               >
                 {unit}
               </motion.div>
             </div>
             
             <motion.div
-              className="space-y-2"
-              variants={{
-                hidden: { opacity: 0 },
-                visible: {
-                  opacity: 1,
-                  transition: { staggerChildren: 0.1 },
-                },
-              }}
-              initial="hidden"
-              animate="visible"
+              className="space-y-3"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
             >
-              <motion.div
-                className="flex justify-between text-xs"
-                variants={{
-                  hidden: { opacity: 0, x: -10 },
-                  visible: { opacity: 1, x: 0 },
-                }}
-              >
+              <div className="flex items-center justify-between gap-2">
                 <motion.span
-                  className={cn("px-3 py-1 rounded-full text-white font-bold text-xs shadow-lg", status.color)}
-                  whileHover={{ scale: 1.1 }}
+                  className={cn("px-3 py-1.5 rounded-full text-white font-bold text-sm shadow-lg", status.color)}
+                  whileHover={{ scale: 1.05 }}
                 >
                   {status.level}
                 </motion.span>
-                <span className="text-gray-600 font-medium">
-                  Safe: {safeLimit} {unit}
+                <span className="text-xs text-gray-600 font-medium text-right">
+                  Limit: {safeLimit}
                 </span>
-              </motion.div>
+              </div>
               <motion.div
                 initial={{ scaleX: 0 }}
                 animate={{ scaleX: 1 }}
-                transition={{ delay: 0.3, duration: 0.6 }}
+                transition={{ delay: 0.4, duration: 0.6 }}
                 style={{ originX: 0 }}
               >
                 <Progress 
                   value={percentage} 
-                  className="h-3 rounded-full overflow-hidden" 
+                  className="h-2.5 rounded-full overflow-hidden" 
                   data-testid="progress-pollutant-level"
                 />
               </motion.div>
