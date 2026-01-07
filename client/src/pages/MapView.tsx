@@ -45,6 +45,7 @@ export default function MapView() {
   const [locations, setLocations] = useState<AQIData[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [mapLayer, setMapLayer] = useState("aqi");
+  const [mapCenter, setMapCenter] = useState<[number, number]>([12.9716, 77.5946]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [aqiTrends, setAqiTrends] = useState<TrendData[]>([]);
   const [weatherTrends, setWeatherTrends] = useState<TrendData[]>([]);
@@ -147,6 +148,14 @@ export default function MapView() {
     }
   }, [selectedLocation]);
 
+  useEffect(() => {
+    if (locations && locations.length > 0) {
+      const avgLat = locations.reduce((a, b) => a + b.lat, 0) / locations.length;
+      const avgLon = locations.reduce((a, b) => a + b.lon, 0) / locations.length;
+      setMapCenter([avgLat, avgLon]);
+    }
+  }, [locations]);
+
   const handleRefresh = async () => {
     await fetchAQILocations();
   };
@@ -207,7 +216,7 @@ export default function MapView() {
             </CardHeader>
             <CardContent className="p-0">
               <MapContainer
-                center={[12.9716, 77.5946]}
+                center={mapCenter}
                 zoom={12}
                 scrollWheelZoom={true}
                 style={{ height: "500px", width: "100%" }}

@@ -127,24 +127,20 @@ export class OpenWeatherService {
       // Throw error instead of falling back to mock data
       throw new Error(`Failed to fetch real weather data from OpenWeather API: ${error}`);
     }
-  }  async getMultiCityAQI(cityNames: string[]): Promise<any[]> {
+  async getMultiCityAQI(cityNames: string[]): Promise<any[]> {
     const promises = cityNames.map(city => this.getAQIData(city));
-    
-    try {
-      const results = await Promise.allSettled(promises);
-      return results.map((result, index) => {
-        if (result.status === 'fulfilled') {
-          return result.value;
-        } else {
-          console.error(`Failed to get AQI for ${cityNames[index]}:`, result.reason);
-          return this.getMockAQIData(this.getCityCoordinates(cityNames[index])!);
-        }
-      });
-    } catch (error) {
-      console.error('Multi-city AQI error:', error);
-      // Return mock data for all cities
-      return cityNames.map(city => this.getMockAQIData(this.getCityCoordinates(city)!));
-    }
+
+    const results = await Promise.allSettled(promises);
+    const successful: any[] = [];
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        successful.push(result.value);
+      } else {
+        console.error(`Failed to get AQI for ${cityNames[index]}:`, result.reason);
+      }
+    });
+
+    return successful;
   }
 
   private getCityCoordinates(cityName: string): CityCoordinates | null {
@@ -209,56 +205,7 @@ export class OpenWeatherService {
     return conversionMap[europeanAQI] || 100;
   }
 
-  private getMockAQIData(city: CityCoordinates) {
-    // Generate realistic mock data with some variation
-    const baseAQI = city.name === 'Delhi' ? 180 : 
-                   city.name === 'Mumbai' ? 110 : 
-                   city.name === 'Bengaluru' ? 125 : 95;
-    
-    const variation = Math.floor(Math.random() * 40) - 20; // ±20 variation
-    const aqi = Math.max(50, baseAQI + variation);
-    
-    // Generate realistic temperature for Indian cities
-    const baseTemp = city.name === 'Mumbai' ? 29 : 
-                    city.name === 'Delhi' ? 25 : 
-                    city.name === 'Bengaluru' ? 28 : 27;
-    const temperature = baseTemp + Math.floor(Math.random() * 6) - 3;
-    
-    return {
-      location: city.name,
-      state: city.state,
-      aqi: aqi,
-      pm25: Math.round(aqi * 0.3 + Math.random() * 10),
-      pm10: Math.round(aqi * 0.5 + Math.random() * 15),
-      co: Math.round((aqi * 0.01 + Math.random() * 0.5) * 100) / 100,
-      o3: Math.round(aqi * 0.8 + Math.random() * 20),
-      no2: Math.round(aqi * 0.4 + Math.random() * 10),
-      so2: Math.round(aqi * 0.15 + Math.random() * 5),
-      temperature: temperature,
-      humidity: 60 + Math.floor(Math.random() * 30),
-      windSpeed: 8 + Math.floor(Math.random() * 10),
-      timestamp: new Date(),
-      source: 'mock'
-    };
-  }
-
-  private getMockWeatherData(city: CityCoordinates) {
-    // Generate realistic weather data for Indian cities
-    const baseTemp = city.name === 'Mumbai' ? 29 : 
-                    city.name === 'Delhi' ? 25 : 
-                    city.name === 'Bengaluru' ? 28 : 27;
-                    
-    return {
-      location: city.name,
-      state: city.state,
-      temperature: baseTemp + Math.floor(Math.random() * 6) - 3,
-      humidity: 60 + Math.floor(Math.random() * 30),
-      windSpeed: 8 + Math.floor(Math.random() * 10),
-      visibility: 8 + Math.floor(Math.random() * 4),
-      condition: ['Clear', 'Partly Cloudy', 'Hazy', 'Cloudy'][Math.floor(Math.random() * 4)],
-      timestamp: new Date()
-    };
-  }
+  // Note: Mock data generators removed to ensure only real OpenWeather values are used.
 
   getSupportedCities(): CityCoordinates[] {
     return Object.values(INDIAN_CITIES);

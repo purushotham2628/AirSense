@@ -1,124 +1,232 @@
-// ARIMA-like auto-regressive prediction model for time series forecasting
-// Uses a simplified AR(p) model with differencing and mean reversion
+// ARIMA(p, d) implementation (AR via OLS on differenced series)
+// This implementation focuses on correct differencing (integration) and
+// fitting an AR(p) model using ordinary least squares. It returns
+// forecasts along with simple confidence intervals derived from residuals.
 
 interface ARModel {
-  coefficients: number[];
-  intercept: number;
+  coefficients: number[]; // includes intercept as first element
   residuals: number[];
   residualStd: number;
-  mean: number;
 }
 
-function fitARModel(series: number[], p: number = 3): ARModel {
-  // Reverse so chronological (oldest first)
-  const data = [...series].reverse();
-  
-  if (data.length < p + 2) {
-    // Fallback for small datasets
-    return {
-      coefficients: Array(p).fill(0),
-      intercept: data[data.length - 1] || 0,
-      residuals: [],
-      residualStd: 0,
-      mean: data.reduce((a, b) => a + b, 0) / Math.max(1, data.length)
-    };
-  }
-
-  // Compute mean
-  const mean = data.reduce((a, b) => a + b, 0) / data.length;
-
-  // Center the data
-  const centered = data.map(x => x - mean);
-
-  // Fit AR coefficients using Yule-Walker equations (simplified)
-  const coefficients = Array(p).fill(0);
-  const acf: number[] = [];
-  
-  // Compute autocorrelations
-  for (let lag = 0; lag <= p; lag++) {
-    let sum = 0;
-    let count = 0;
-    for (let i = lag; i < centered.length; i++) {
-      sum += centered[i] * centered[i - lag];
-      count++;
+function difference(series: number[], d: number): { diffed: number[]; lastValues: number[] } {
+  const lastValues: number[] = [];
+  let current = [...series];
+  for (let i = 0; i < d; i++) {
+    if (current.length === 0) break;
+    lastValues.push(current[current.length - 1]);
+    const next: number[] = [];
+    for (let j = 1; j < current.length; j++) {
+      next.push(current[j] - current[j - 1]);
     }
-    acf.push(count > 0 ? sum / count : 0);
+    current = next;
   }
+  return { diffed: current, lastValues };
+}
 
-  // Simplified AR fitting: use ratio of acf for each coefficient
-  for (let i = 0; i < p; i++) {
-    if (acf[0] !== 0) {
-      coefficients[i] = (acf[i + 1] / acf[0]) * 0.5 + (i === 0 ? 0.3 : 0); // dampening factor
+function invertDifferences(forecastDiffs: number[], lastValues: number[], d: number): number[] {
+  // Reconstruct forecasts back to original scale by cumulatively summing
+  let current = [...forecastDiffs];
+  for (let i = d - 1; i >= 0; i--) {
+    const base = lastValues[i] ?? 0;
+    const restored: number[] = [];
+    let cumulative = base;
+    for (let v of current) {
+      cumulative = cumulative + v;
+      restored.push(cumulative);
     }
+    current = restored;
+  }
+  return current;
+}
+
+function fitAR_OLS(series: number[], p: number): ARModel {
+  const n = series.length;
+  if (n <= p) {
+    return { coefficients: [series.reduce((a, b) => a + b, 0) / Math.max(1, n)], residuals: [], residualStd: 0 };
   }
 
-  // Compute residuals and std
-  const residuals: number[] = [];
-  for (let t = p; t < centered.length; t++) {
-    let pred = 0;
+  // Build design matrix X and target y
+  const rows = n - p;
+  const X: number[][] = Array(rows).fill(0).map(() => Array(p + 1).fill(1)); // first col for intercept
+  const y: number[] = Array(rows).fill(0);
+
+  for (let i = p; i < n; i++) {
+    const rowIdx = i - p;
+    y[rowIdx] = series[i];
+    X[rowIdx][0] = 1; // intercept
     for (let j = 0; j < p; j++) {
-      pred += coefficients[j] * centered[t - j - 1];
+      X[rowIdx][j + 1] = series[i - j - 1];
     }
-    residuals.push(centered[t] - pred);
   }
 
-  const residualMean = residuals.reduce((a, b) => a + b, 0) / residuals.length;
-  const residualVar = residuals.reduce((a, b) => a + Math.pow(b - residualMean, 2), 0) / residuals.length;
-  const residualStd = Math.sqrt(residualVar);
+  // Compute (X^T X) and (X^T y)
+  const XtX: number[][] = Array(p + 1).fill(0).map(() => Array(p + 1).fill(0));
+  const Xty: number[] = Array(p + 1).fill(0);
 
-  return {
-    coefficients,
-    intercept: mean,
-    residuals,
-    residualStd,
-    mean
-  };
+  for (let i = 0; i < rows; i++) {
+    for (let a = 0; a < p + 1; a++) {
+      Xty[a] += X[i][a] * y[i];
+      for (let b = 0; b < p + 1; b++) {
+        XtX[a][b] += X[i][a] * X[i][b];
+      }
+    }
+  }
+
+  // Solve XtX * beta = Xty using Gaussian elimination (small p so fine)
+  const m = p + 1;
+  const A: number[][] = Array(m).fill(0).map(() => Array(m + 1).fill(0));
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < m; j++) A[i][j] = XtX[i][j];
+    A[i][m] = Xty[i];
+  }
+
+  // Gaussian elimination
+  for (let i = 0; i < m; i++) {
+    // pivot
+    let maxRow = i;
+    for (let k = i + 1; k < m; k++) {
+      if (Math.abs(A[k][i]) > Math.abs(A[maxRow][i])) maxRow = k;
+    }
+    if (maxRow !== i) {
+      const tmp = A[i];
+      A[i] = A[maxRow];
+      A[maxRow] = tmp;
+    }
+    const diag = A[i][i] || 1e-12;
+    for (let k = i; k < m + 1; k++) A[i][k] /= diag;
+    for (let r = 0; r < m; r++) {
+      if (r === i) continue;
+      const factor = A[r][i];
+      for (let c = i; c < m + 1; c++) A[r][c] -= factor * A[i][c];
+    }
+  }
+
+  const beta: number[] = Array(m).fill(0);
+  for (let i = 0; i < m; i++) beta[i] = A[i][m];
+
+  // compute residuals
+  const residuals: number[] = [];
+  for (let i = 0; i < rows; i++) {
+    let pred = 0;
+    for (let j = 0; j < m; j++) pred += X[i][j] * beta[j];
+    residuals.push(y[i] - pred);
+  }
+
+  const resMean = residuals.length ? residuals.reduce((a, b) => a + b, 0) / residuals.length : 0;
+  const resVar = residuals.length ? residuals.reduce((a, b) => a + Math.pow(b - resMean, 2), 0) / residuals.length : 0;
+  const resStd = Math.sqrt(resVar);
+
+  return { coefficients: beta, residuals, residualStd: resStd };
 }
 
-export function arimaForecast(series: number[], steps: number, p: number = 3): { forecast: number[]; confidence: number } {
+export function arimaForecast(series: number[], steps: number, p: number = 3, d: number = 1, exog?: number[][], exogFuture?: number[][], seasonalPeriod?: number): { forecast: number[]; lower: number[]; upper: number[]; confidence: number } {
   if (!series || series.length === 0) {
-    return { forecast: Array(steps).fill(0), confidence: 0 };
+    return { forecast: Array(steps).fill(0), lower: Array(steps).fill(0), upper: Array(steps).fill(0), confidence: 0 };
   }
 
-  const model = fitARModel(series, p);
-  const data = [...series].reverse(); // chronological
-  const forecasts: number[] = [];
-  let workingData = [...data];
+  // Work on chronological data (oldest first)
+  const dataChron = [...series].reverse();
 
-  // Calculate trend from recent data
-  const recentDiff = data.length > 1 ? data[data.length - 1] - data[0] : 0;
-  const trend = recentDiff / Math.max(1, data.length - 1);
-  
-  // Calculate base variation from historical std
-  const mean = model.mean;
-  const variance = model.residualStd > 0 ? model.residualStd : Math.abs(mean * 0.15);
+  // Differencing
+  const { diffed, lastValues } = difference(dataChron, d);
+
+  // Align exogenous variables to chronological order if provided
+  let exogChron: number[][] | undefined = undefined;
+  let exogFutureChron: number[][] | undefined = undefined;
+  if (exog && exog.length) {
+    exogChron = [...exog].reverse();
+  }
+  if (exogFuture && exogFuture.length) {
+    exogFutureChron = [...exogFuture]; // expected in forward order for forecasting
+  }
+
+  // If after differencing we have too few points, fallback to naive forecast
+  if (diffed.length < Math.max(3, p + 1)) {
+    const last = dataChron[dataChron.length - 1] ?? 0;
+    const forecast = Array(steps).fill(Math.round(Math.max(0, last)));
+    return { forecast, lower: forecast.map(v => Math.max(0, v - 1)), upper: forecast.map(v => v + 1), confidence: 60 };
+  }
+
+  const model = fitAR_OLS(diffed, p, exogChron);
+
+  // Forecast in differenced space
+  const forecastsDiff: number[] = [];
+  const n = diffed.length;
+  // Initialize history for forecasting from most recent p values
+  const history: number[] = diffed.slice(Math.max(0, n - p), n);
+  const exogHistory: number[][] = exogChron && exogChron.length >= n ? exogChron.slice(Math.max(0, n - p), n) : [];
 
   for (let h = 0; h < steps; h++) {
-    let pred = model.intercept;
-    for (let j = 0; j < p && j < workingData.length; j++) {
-      pred += model.coefficients[j] * (workingData[workingData.length - j - 1] - model.mean);
+    // build feature vector [1, y_{t-1}, y_{t-2}, ... , exog...]
+    const features: number[] = [1];
+    for (let j = 0; j < p; j++) {
+      features.push(history[history.length - 1 - j] ?? 0);
     }
-    
-    // Add trend component with gentle mean reversion
-    const trendStrength = Math.exp(-h / 15); // trend decays more gradually
-    const trendComponent = trend * trendStrength;
-    pred = pred * 0.5 + model.mean * 0.35 + trendComponent * 0.15;
-    
-    // Add stronger stochastic variation for realistic fluctuations
-    const randomComponent = (Math.random() - 0.5) * 2; // normalized random in [-1, 1]
-    const variation = randomComponent * variance * 1.2; // increased variation amplitude
-    pred = pred + variation;
-    
-    // Add periodic-like behavior (slight oscillation every few hours)
-    const periodicComponent = Math.sin(h / 4) * variance * 0.5;
-    pred = pred + periodicComponent;
-    
-    forecasts.push(Math.round(Math.max(0, pred)));
-    workingData.push(pred);
+
+    // append exogenous inputs for this step if model expects them
+    if (exogChron && model.coefficients.length > p + 1) {
+      const exogIdx = exogHistory.length - 1 + h;
+      let exogVals: number[] = [];
+      if (exogFutureChron && exogFutureChron[h]) {
+        exogVals = exogFutureChron[h];
+      } else if (exogHistory[exogHistory.length - 1 + h]) {
+        exogVals = exogHistory[exogIdx] || [];
+      } else {
+        // fallback zeros
+        exogVals = Array(model.coefficients.length - (p + 1)).fill(0);
+      }
+      for (let v of exogVals) features.push(v ?? 0);
+    }
+
+    // compute prediction
+    let pred = 0;
+    for (let k = 0; k < model.coefficients.length; k++) pred += model.coefficients[k] * (features[k] ?? 0);
+    forecastsDiff.push(pred);
+    history.push(pred);
   }
 
-  // Confidence based on model quality
-  const confidence = Math.max(45, Math.min(85, Math.round(80 - model.residualStd * 1.5)));
+  // Convert forecasts back to original scale
+  let forecasts = invertDifferences(forecastsDiff, lastValues, d).map(v => Math.round(Math.max(0, v)));
 
-  return { forecast: forecasts, confidence };
+  // Seasonal adjustment (simple additive seasonal component)
+  if (seasonalPeriod && seasonalPeriod > 1 && dataChron.length >= seasonalPeriod) {
+    const seasonalMeans: number[] = Array(seasonalPeriod).fill(0);
+    const counts: number[] = Array(seasonalPeriod).fill(0);
+    for (let i = 0; i < dataChron.length; i++) {
+      const idx = i % seasonalPeriod;
+      seasonalMeans[idx] += dataChron[i];
+      counts[idx]++;
+    }
+    for (let i = 0; i < seasonalPeriod; i++) seasonalMeans[i] = counts[i] ? seasonalMeans[i] / counts[i] : 0;
+
+    const overallMean = dataChron.reduce((a, b) => a + b, 0) / dataChron.length;
+    const lastPhase = dataChron.length % seasonalPeriod;
+    for (let h = 0; h < forecasts.length; h++) {
+      const phase = (lastPhase + h + 1) % seasonalPeriod;
+      const seasonalAdjustment = (seasonalMeans[phase] - overallMean) * 0.6; // dampened
+      forecasts[h] = Math.max(0, Math.round(forecasts[h] + seasonalAdjustment));
+    }
+  }
+
+  // Confidence intervals using residual std (approximate)
+  const lowers: number[] = [];
+  const uppers: number[] = [];
+  for (let h = 0; h < steps; h++) {
+    const stepStd = model.residualStd * Math.sqrt(1 + (h + 1) * 0.05);
+    const z = 1.96; // ~95% CI
+    const center = forecasts[h];
+    const lo = Math.round(Math.max(0, center - z * stepStd));
+    const hi = Math.round(center + z * stepStd);
+    lowers.push(lo);
+    uppers.push(hi);
+  }
+
+  // Confidence score derived inversely from residual std and series variance
+  const seriesMean = dataChron.reduce((a, b) => a + b, 0) / dataChron.length;
+  const seriesVar = dataChron.reduce((a, b) => a + Math.pow(b - seriesMean, 2), 0) / Math.max(1, dataChron.length);
+  let confidence = 80 - Math.round(model.residualStd * 5 + (seriesVar > 0 ? Math.min(20, Math.sqrt(seriesVar)) : 0));
+  confidence = Math.max(20, Math.min(95, confidence));
+
+  return { forecast: forecasts, lower: lowers, upper: uppers, confidence };
 }

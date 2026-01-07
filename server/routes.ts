@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { aiService } from "./services/aiService";
 import { VoiceService } from "./services/voiceService";
 import { openWeatherService } from "./services/openWeatherService";
-import { predictionService } from "./services/predictionService";
+import { predictionService, predictHealthAdvisory } from "./services/predictionService";
 import { insertChatMessageSchema, insertVoiceCommandSchema } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -59,6 +59,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!context) {
         return res.status(503).json({ error: 'No real-time AQI data available. Ensure OpenWeather API is configured.' });
+      }
+
+      // Enrich context with short-term predictions and health advisory where possible
+      try {
+        const preds = await predictionService.predictAQIHourly(context.location, 6);
+        const health = await predictHealthAdvisory(context.location, 6);
+        // attach to context for AI use
+        (context as any).predictions = preds;
+        (context as any).healthAdvisory = health;
+      } catch (e) {
+        // ignore enrichment failures
       }
       
       // Get chat history for context
@@ -472,21 +483,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hours = timeframe === '7d' ? 168 : timeframe === '30d' ? 720 : 24;
       const loc = location ? String(location) : 'Bengaluru';
 
-      // First ensure we have real data to predict from
-      const latestReading = await storage.getLatestAQIReading(loc);
-      if (!latestReading) {
-        return res.status(503).json({ 
-          error: 'No real historical data available for predictions',
-          message: 'OpenWeather API must be configured to generate ML predictions.'
-        });
-      }
-
       const preds = await predictionService.predictAQIHourly(loc, Math.min(hours, 72));
 
       if (!preds || preds.length === 0) {
         return res.status(503).json({ 
           error: 'Could not generate predictions',
-          message: 'Ensure sufficient historical data is available.'
+          message: 'Ensure sufficient historical data or OpenWeather API access.'
         });
       }
 
@@ -511,21 +513,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const loc = location ? String(location) : 'Bengaluru';
       const days = parseInt(String(req.query.days || '7'), 10) || 7;
 
-      // Ensure we have real historical data
-      const latestReading = await storage.getLatestAQIReading(loc);
-      if (!latestReading) {
-        return res.status(503).json({ 
-          error: 'No real historical data available for predictions',
-          message: 'OpenWeather API must be configured to generate ML predictions.'
-        });
-      }
-
       const forecast = await predictionService.predictAQIWeekly(loc, days);
 
       if (!forecast || forecast.length === 0) {
         return res.status(503).json({ 
           error: 'Could not generate weekly forecast',
-          message: 'Ensure sufficient historical data is available.'
+          message: 'Ensure sufficient historical data or OpenWeather API access.'
         });
       }
 
@@ -539,20 +532,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/ml/pollutants', async (req, res) => {
     try {
       const { location } = req.query;
+      const loc = location ? String(location) : 'Bengaluru';
+
+      // Try to fetch current pollutant composition from OpenWeather
+      let current: any = null;
+      try {
+        current = await openWeatherService.getAQIData(loc);
+      } catch (e) {
+        // fallback to latest stored reading
+        const stored = await storage.getLatestAQIReading(loc);
+        current = stored ? {
+          aqi: stored.aqi,
+          pm25: stored.pm25,
+          pm10: stored.pm10,
+          co: stored.co,
+          o3: stored.o3,
+          no2: stored.no2,
+          so2: stored.so2
+        } : null;
+      }
+
+      if (!current) {
+        return res.status(503).json({ error: 'No pollutant data available for this location' });
+      }
+
+      const preds = await predictionService.predictAQIHourly(loc, 24).catch(() => []);
+      const avgPredictedAQI = preds && preds.length ? Math.round(preds.reduce((a:any,b:any)=>a+b.predicted,0)/preds.length) : current.aqi;
+
+      const makeEntry = (key: string, name: string, unit: string, factor = 1) => {
+        const currentVal = current[key] ?? 0;
+        const predictedVal = currentVal && current.aqi ? (currentVal * (avgPredictedAQI / Math.max(1, current.aqi))) : currentVal;
+        const change = currentVal ? Math.round(((predictedVal - currentVal) / currentVal) * 100) : 0;
+        return { name, unit, current: Math.round(currentVal * factor * 100)/100, predicted: Math.round(predictedVal * factor * 100)/100, change };
+      };
 
       const pollutants = [
-        { name: 'PM2.5', unit: 'μg/m³', current: 35, predicted: 42, change: 20 },
-        { name: 'PM10', unit: 'μg/m³', current: 68, predicted: 75, change: 10 },
-        { name: 'CO', unit: 'mg/m³', current: 1.2, predicted: 1.1, change: -8 },
-        { name: 'O₃', unit: 'μg/m³', current: 85, predicted: 92, change: 8 },
-        { name: 'NO₂', unit: 'μg/m³', current: 42, predicted: 38, change: -10 },
-        { name: 'SO₂', unit: 'μg/m³', current: 15, predicted: 14, change: -7 }
+        makeEntry('pm25', 'PM2.5', 'μg/m³', 1),
+        makeEntry('pm10', 'PM10', 'μg/m³', 1),
+        makeEntry('co', 'CO', 'mg/m³', 1),
+        makeEntry('o3', 'O₃', 'μg/m³', 1),
+        makeEntry('no2', 'NO₂', 'μg/m³', 1),
+        makeEntry('so2', 'SO₂', 'μg/m³', 1),
       ];
 
       res.json(pollutants);
     } catch (error) {
       console.error('ML Pollutants API Error:', error);
       res.status(500).json({ error: 'Failed to retrieve pollutant predictions' });
+    }
+  });
+
+  // Health advisory endpoint
+  app.get('/api/health/advisory/:location?', async (req, res) => {
+    try {
+      const loc = req.params.location || String(req.query.location || 'Bengaluru');
+      const advisory = await predictHealthAdvisory(loc, parseInt(String(req.query.hours || '24'), 10));
+      res.json(advisory);
+    } catch (error) {
+      console.error('Health Advisory API Error:', error);
+      res.status(500).json({ error: 'Failed to generate health advisory' });
     }
   });
 

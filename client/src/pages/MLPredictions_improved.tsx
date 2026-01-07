@@ -31,6 +31,7 @@ export default function MLPredictions() {
   const [weeklyForecast, setWeeklyForecast] = useState<any[]>([]);
   const [pollutantPredictions, setPollutantPredictions] = useState<any[]>([]);
   const [modelMetrics, setModelMetrics] = useState<any[]>([]);
+  const [healthAdvisory, setHealthAdvisory] = useState<any[]>([]);
 
   const generateSampleHourlyData = () => {
     const now = new Date();
@@ -41,7 +42,11 @@ export default function MLPredictions() {
         time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         actual: Math.round(baseAQI + (Math.random() - 0.5) * 15),
         predicted: Math.round(baseAQI + (Math.random() - 0.5) * 10),
-        confidence: 75 + Math.random() * 20
+        lower: Math.max(0, Math.round(baseAQI - 18 + (Math.random() - 0.5) * 6)),
+        upper: Math.round(baseAQI + 18 + (Math.random() - 0.5) * 6),
+        confidence: 70 + Math.random() * 22,
+        // band = upper - lower (used for stacked area rendering)
+        band: Math.round((baseAQI + 18) - Math.max(0, (baseAQI - 18)))
       };
     });
   };
@@ -78,8 +83,30 @@ export default function MLPredictions() {
         weeklyData = await weeklyRes.json();
       }
 
-      // Use real data if available, otherwise generate sample data
-      setHourlyPredictions(Array.isArray(hourlyData) && hourlyData.length > 0 ? hourlyData : generateSampleHourlyData());
+      // Normalize hourly API response to ensure keys: time, actual, predicted, lower, upper, confidence
+      const normalizeHourly = (arr: any[]) => {
+        return arr.map((it: any, idx: number) => {
+          // API may return ISO time strings; format to short time for chart X axis
+          const t = it.time ? new Date(it.time) : new Date(Date.now() + idx * 3600000);
+          const timeLabel = t.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+          const predicted = typeof it.predicted === 'number' ? it.predicted : (typeof it.value === 'number' ? it.value : null);
+          const lower = typeof it.lower === 'number' ? it.lower : (predicted !== null ? Math.max(0, Math.round(predicted - (it.confidence ? 5 : 3))) : null);
+          const upper = typeof it.upper === 'number' ? it.upper : (predicted !== null ? Math.round(predicted + (it.confidence ? 5 : 3)) : null);
+          const band = (upper !== null && lower !== null) ? Math.max(0, upper - lower) : 0;
+          return {
+            time: timeLabel,
+            actual: typeof it.actual === 'number' ? it.actual : null,
+            predicted: predicted,
+            lower,
+            upper,
+            confidence: typeof it.confidence === 'number' ? it.confidence : (it.conf ? it.conf : 0),
+            band
+          };
+        });
+      };
+
+      const finalHourly = Array.isArray(hourlyData) && hourlyData.length > 0 ? normalizeHourly(hourlyData) : generateSampleHourlyData();
+      setHourlyPredictions(finalHourly);
       setWeeklyForecast(Array.isArray(weeklyData) && weeklyData.length > 0 ? weeklyData : generateSampleWeeklyData());
       
       // Set pollutant predictions
@@ -99,6 +126,19 @@ export default function MLPredictions() {
         { metric: 'R² Score', value: 0.87, unit: '', description: 'Variance explained' },
         { metric: 'Accuracy', value: 88, unit: '%', description: 'Within 10% AQI range' },
       ]);
+
+      // Fetch health advisory
+      try {
+        const advRes = await fetch(`/api/health/advisory/${encodeURIComponent(location)}?hours=24`);
+        if (advRes.ok) {
+          const adv = await advRes.json();
+          setHealthAdvisory(Array.isArray(adv) ? adv : []);
+        } else {
+          setHealthAdvisory([]);
+        }
+      } catch (e) {
+        setHealthAdvisory([]);
+      }
 
     } catch (e: any) {
       console.error('ML Data Fetch Error:', e);
@@ -226,6 +266,16 @@ export default function MLPredictions() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {healthAdvisory && healthAdvisory.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="font-semibold text-sm text-gray-700">Health Advisory (next 24h)</h4>
+                      <ul className="text-sm text-gray-600 mt-2 space-y-1">
+                        {healthAdvisory.slice(0,3).map((h: any, idx: number) => (
+                          <li key={idx}>{new Date(h.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}: <strong>{h.category}</strong> — {h.advice}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   {hourlyPredictions.length > 0 ? (
                     <ResponsiveContainer width="100%" height={400}>
                       <AreaChart data={hourlyPredictions}>
@@ -237,6 +287,10 @@ export default function MLPredictions() {
                           <linearGradient id="colorPredicted" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.8} />
                             <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="bandGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.18} />
+                            <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.06} />
                           </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
@@ -250,6 +304,10 @@ export default function MLPredictions() {
                           }}
                         />
                         <Legend />
+                        {/* Confidence band: render lower as transparent baseline then band as stacked area */}
+                        <Area dataKey="lower" stackId="1" stroke="none" fill="transparent" isAnimationActive={false} />
+                        <Area dataKey="band" stackId="1" stroke="none" fill="url(#bandGradient)" name="Confidence Band" isAnimationActive={true} animationDuration={900} />
+
                         <Area 
                           type="monotone" 
                           dataKey="actual" 
@@ -403,7 +461,7 @@ export default function MLPredictions() {
                     </div>
                     <div className="bg-white/50 p-3 rounded-lg">
                       <p className="font-semibold text-purple-600">Data Window</p>
-                      <p className="text-gray-700">Last 48 hours of observations</p>
+                      <p className="text-gray-700">Last 72 hours of observations</p>
                     </div>
                     <div className="bg-white/50 p-3 rounded-lg">
                       <p className="font-semibold text-purple-600">Forecast Horizon</p>

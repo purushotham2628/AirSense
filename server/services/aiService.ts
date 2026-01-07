@@ -22,6 +22,8 @@ interface AQIContext {
     windSpeed: number;
   };
   timestamp: string;
+  predictions?: { time: string; predicted: number; confidence?: number }[];
+  healthAdvisory?: any[];
 }
 
 interface ChatMessage {
@@ -32,7 +34,17 @@ interface ChatMessage {
 
 export class AIService {
   private getSystemPrompt(context: AQIContext): string {
-    return `You are AirWatch AI, an expert air quality assistant for Bengaluru, India. You provide accurate, helpful information about air pollution, health impacts, and safety recommendations.
+    let extra = '';
+    if (context.predictions && context.predictions.length) {
+      const next = context.predictions.slice(0,6).map(p => `${p.time}: ${p.predicted} (conf ${Math.round(p.confidence||0)})`).join('; ');
+      extra += `\n- Short-term predictions: ${next}`;
+    }
+    if (context.healthAdvisory && context.healthAdvisory.length) {
+      const top = context.healthAdvisory[0];
+      extra += `\n- Health advisory (next): ${top ? `${top.category}: ${top.advice}` : ''}`;
+    }
+
+    return `You are AirWatch AI, an expert air quality assistant for Bengaluru, India. Provide short, accurate, evidence-based guidance about air pollution, health impacts, and safety recommendations. Cite current AQI and pollutant values when relevant.${extra}
 
 Current Air Quality Context:
 - Location: ${context.location}
@@ -50,25 +62,18 @@ Current Air Quality Context:
 
 AQI Categories:
 - 0-50: Good (Green)
-- 51-100: Moderate (Yellow) 
+- 51-100: Moderate (Yellow)
 - 101-150: Unhealthy for Sensitive Groups (Orange)
 - 151-200: Unhealthy (Red)
 - 201-300: Very Unhealthy (Purple)
 - 301+: Hazardous (Maroon)
 
 Guidelines:
-1. Provide specific, actionable advice based on current conditions
-2. Explain health impacts clearly for different groups (children, elderly, people with respiratory conditions)
-3. Give timing recommendations (e.g., "air quality is usually better in early morning")
-4. Suggest protective measures when needed (masks, indoor activities, air purifiers)
-5. Be conversational but authoritative
-6. Use the current data in your responses
-7. For prediction questions, explain that you're providing estimates based on patterns and current conditions
-
-Avoid:
-- Medical diagnoses or treatment advice
-- Overly technical jargon
-- Speculation beyond reasonable air quality patterns`;
+1. Provide specific, actionable advice for different groups (children, elderly, respiratory conditions).
+2. Be concise (prefer 1–3 short paragraphs) and cite numbers when possible.
+3. Ask a clarifying question if the user intent is ambiguous.
+4. When asked about forecasts, explain uncertainty briefly and reference confidence scores.
+5. Avoid medical diagnoses and encourage consulting professionals for serious symptoms.`;
   }
 
   async getChatResponse(
